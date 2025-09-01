@@ -36,13 +36,13 @@ The server is built with **Express.js** and follows a RESTful API design:
 - **Services**: Dedicated service classes for QR code generation and notification management
 
 ### Database Design
-Uses **PostgreSQL** as the primary database with Drizzle ORM for schema management:
+Uses **Firebase Firestore** as the primary database with complete NoSQL document storage:
 
 - **Schema**: Centralized schema definitions in `/shared/schema.ts` for type sharing between client and server
-- **Tables**: Users, leave requests, approvals, QR codes, and notifications
-- **Relationships**: Proper foreign key relationships between entities
-- **Enums**: PostgreSQL enums for status fields and user roles
-- **Migrations**: Drizzle Kit for database schema migrations
+- **Collections**: Users, leave requests, approvals, QR codes, and notifications
+- **Data Structure**: Document-based storage with subcollections for hierarchical data
+- **Validation**: Zod schemas for runtime type checking and validation
+- **Real-time**: Firebase Firestore real-time listeners for live updates
 
 ### Authentication & Authorization
 Implements a role-based access control system:
@@ -79,8 +79,9 @@ Automated notification management for stakeholders:
 ## External Dependencies
 
 ### Database Services
-- **Neon Database**: PostgreSQL-compatible serverless database using `@neondatabase/serverless`
-- **Connection Pooling**: Built-in connection management for serverless environments
+- **Firebase Firestore**: NoSQL document database with real-time capabilities
+- **Firebase Authentication**: User authentication with email/password and Google sign-in
+- **Firebase Security Rules**: Server-side data validation and access control
 
 ### UI Framework
 - **Radix UI**: Comprehensive set of accessible, unstyled UI primitives including dialogs, dropdowns, forms, and navigation components
@@ -90,7 +91,7 @@ Automated notification management for stakeholders:
 ### Development Tools
 - **Vite**: Modern build tool with hot module replacement and optimized bundling
 - **TypeScript**: Static type checking across the entire application
-- **Drizzle Kit**: Database migration and schema management tool
+- **Firebase SDK**: Client and server SDK for Firebase integration
 - **ESBuild**: Fast JavaScript bundler for production builds
 
 ### Form & Validation

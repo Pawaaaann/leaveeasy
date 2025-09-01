@@ -100,6 +100,9 @@ export const insertLeaveRequestSchema = leaveRequestSchema.omit({
   currentApprovalStep: true, 
   createdAt: true, 
   updatedAt: true 
+}).extend({
+  fromDate: z.string().transform((val) => new Date(val)),
+  toDate: z.string().transform((val) => new Date(val)),
 });
 
 export const insertApprovalSchema = approvalSchema.omit({ 
