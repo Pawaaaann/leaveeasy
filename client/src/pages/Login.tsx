@@ -138,7 +138,20 @@ export default function Login() {
       } else {
         // Handle user login
         
-        // First try Firebase authentication for registered users
+        // First check registered users in localStorage (most reliable for development)
+        const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '{}');
+        const registeredUser = registeredUsers[formData.username];
+        
+        if (registeredUser && registeredUser.password === formData.password && registeredUser.role === formData.role) {
+          login(registeredUser);
+          toast({
+            title: "Login Successful", 
+            description: `Welcome back, ${registeredUser.firstName || registeredUser.username}!`,
+          });
+          return;
+        }
+
+        // Try Firebase authentication for Firebase users
         try {
           const userCredential = await signInWithEmailAndPassword(auth, formData.email || `${formData.username}@college.edu`, formData.password);
           const firebaseUser = userCredential.user;
@@ -164,37 +177,23 @@ export default function Login() {
             throw new Error("User profile not found");
           }
         } catch (firebaseError: any) {
-          console.log("Firebase login failed, trying fallback methods:", firebaseError.message);
-          
-          // Fallback: Check registered users in localStorage
-          const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '{}');
-          const registeredUser = registeredUsers[formData.username];
-          
-          if (registeredUser && registeredUser.password === formData.password && registeredUser.role === formData.role) {
-            login(registeredUser);
-            toast({
-              title: "Login Successful",
-              description: `Welcome back, ${registeredUser.firstName || registeredUser.username}!`,
-            });
-            return;
-          }
+          console.log("Firebase login failed, trying demo credentials:", firebaseError.message);
 
-          // Final fallback: Check dev credentials
-          const devCredentials: Record<string, { password: string; role: string }> = {
-            "student1": { password: "password", role: "student" },
-            "mentor1": { password: "password", role: "mentor" },
-            "parent1": { password: "password", role: "parent" },
-            "hod1": { password: "password", role: "hod" },
-            "principal1": { password: "password", role: "principal" },
-            "warden1": { password: "password", role: "warden" },
-            "security1": { password: "password", role: "security" },
-          };
+        }
 
-          const credentials = devCredentials[formData.username];
-          if (!credentials || credentials.password !== formData.password || credentials.role !== formData.role) {
-            throw new Error("Invalid credentials");
-          }
+        // Final fallback: Check dev credentials
+        const devCredentials: Record<string, { password: string; role: string }> = {
+          "student1": { password: "password", role: "student" },
+          "mentor1": { password: "password", role: "mentor" },
+          "parent1": { password: "password", role: "parent" },
+          "hod1": { password: "password", role: "hod" },
+          "principal1": { password: "password", role: "principal" },
+          "warden1": { password: "password", role: "warden" },
+          "security1": { password: "password", role: "security" },
+        };
 
+        const credentials = devCredentials[formData.username];
+        if (credentials && credentials.password === formData.password && credentials.role === formData.role) {
           // Use sample user data for dev accounts
           const sampleUserData: Record<string, any> = {
             "student1": { id: "student1-id", username: "student1", email: "student1@college.edu", role: "student", firstName: "John", lastName: "Doe", department: "Computer Science", studentId: "CS001", parentId: "parent1" },
@@ -208,17 +207,19 @@ export default function Login() {
           
           const user = sampleUserData[formData.username];
           
-          if (!user || user.role !== formData.role) {
-            throw new Error("Invalid credentials");
+          if (user) {
+            login(user);
+            
+            toast({
+              title: "Login Successful",
+              description: `Welcome back, ${user.firstName || user.username}! (Demo mode)`,
+            });
+            return;
           }
-          
-          login(user);
-          
-          toast({
-            title: "Login Successful",
-            description: `Welcome back, ${user.firstName || user.username}! (Demo mode)`,
-          });
         }
+
+        // If we reach here, login failed
+        throw new Error("Invalid credentials");
       }
     } catch (error) {
       console.error("Login error:", error);
