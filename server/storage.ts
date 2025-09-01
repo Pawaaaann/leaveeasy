@@ -94,8 +94,8 @@ export class FirebaseStorage implements IStorage {
       const querySnapshot = await getDocs(q);
       
       if (!querySnapshot.empty) {
-        const doc = querySnapshot.docs[0];
-        return this.convertTimestamps({ id: doc.id, ...doc.data() }) as User;
+        const docSnap = querySnapshot.docs[0];
+        return this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as User;
       }
       return undefined;
     } catch (error) {
@@ -128,8 +128,8 @@ export class FirebaseStorage implements IStorage {
       const q = query(usersRef, where("role", "==", role));
       const querySnapshot = await getDocs(q);
       
-      return querySnapshot.docs.map(doc => 
-        this.convertTimestamps({ id: doc.id, ...doc.data() }) as User
+      return querySnapshot.docs.map(docSnap => 
+        this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as User
       );
     } catch (error) {
       console.error("Error getting users by role:", error);
@@ -183,8 +183,8 @@ export class FirebaseStorage implements IStorage {
       );
       const querySnapshot = await getDocs(q);
       
-      return querySnapshot.docs.map(doc => 
-        this.convertTimestamps({ id: doc.id, ...doc.data() }) as LeaveRequest
+      return querySnapshot.docs.map(docSnap => 
+        this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as LeaveRequest
       );
     } catch (error) {
       console.error("Error getting leave requests by student:", error);
@@ -212,8 +212,8 @@ export class FirebaseStorage implements IStorage {
       );
       const querySnapshot = await getDocs(q);
       
-      return querySnapshot.docs.map(doc => 
-        this.convertTimestamps({ id: doc.id, ...doc.data() }) as LeaveRequest
+      return querySnapshot.docs.map(docSnap => 
+        this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as LeaveRequest
       );
     } catch (error) {
       console.error("Error getting pending requests by approver:", error);
@@ -246,8 +246,8 @@ export class FirebaseStorage implements IStorage {
       );
       const querySnapshot = await getDocs(q);
       
-      return querySnapshot.docs.map(doc => 
-        this.convertTimestamps({ id: doc.id, ...doc.data() }) as LeaveRequest
+      return querySnapshot.docs.map(docSnap => 
+        this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as LeaveRequest
       );
     } catch (error) {
       console.error("Error getting overdue returns:", error);
@@ -284,8 +284,8 @@ export class FirebaseStorage implements IStorage {
       );
       const querySnapshot = await getDocs(q);
       
-      return querySnapshot.docs.map(doc => 
-        this.convertTimestamps({ id: doc.id, ...doc.data() }) as Approval
+      return querySnapshot.docs.map(docSnap => 
+        this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as Approval
       );
     } catch (error) {
       console.error("Error getting approvals by request:", error);
@@ -338,8 +338,8 @@ export class FirebaseStorage implements IStorage {
       const querySnapshot = await getDocs(q);
       
       if (!querySnapshot.empty) {
-        const doc = querySnapshot.docs[0];
-        return this.convertTimestamps({ id: doc.id, ...doc.data() }) as QrCode;
+        const docSnap = querySnapshot.docs[0];
+        return this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as QrCode;
       }
       return undefined;
     } catch (error) {
@@ -387,8 +387,8 @@ export class FirebaseStorage implements IStorage {
       const q = query(notificationsRef, where("sent", "==", false));
       const querySnapshot = await getDocs(q);
       
-      return querySnapshot.docs.map(doc => 
-        this.convertTimestamps({ id: doc.id, ...doc.data() }) as Notification
+      return querySnapshot.docs.map(docSnap => 
+        this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as Notification
       );
     } catch (error) {
       console.error("Error getting pending notifications:", error);

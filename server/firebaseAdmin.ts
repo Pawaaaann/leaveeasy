@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.VITE_FIREBASE_API_KEY,
@@ -10,8 +10,8 @@ const firebaseConfig = {
   appId: process.env.VITE_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase app
-const app = initializeApp(firebaseConfig);
+// Initialize Firebase app for server use
+const app = initializeApp(firebaseConfig, "admin");
 
 // Get Firestore instance  
 export const adminDb = getFirestore(app);
