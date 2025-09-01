@@ -1,6 +1,4 @@
 import { useState, useEffect } from "react";
-import { onAuthStateChanged, signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase";
 import type { User } from "@shared/firebaseSchema";
 
 interface AuthState {
@@ -17,28 +15,20 @@ export function useAuth() {
   });
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        // Get user role and details from Firestore
-        const storedUser = localStorage.getItem("userProfile");
-        if (storedUser) {
-          try {
-            const userProfile = JSON.parse(storedUser);
-            setAuthState({
-              user: userProfile,
-              isLoading: false,
-              isAuthenticated: true,
-            });
-          } catch (error) {
-            console.error("Failed to parse stored user profile:", error);
-            localStorage.removeItem("userProfile");
-            setAuthState({
-              user: null,
-              isLoading: false,
-              isAuthenticated: false,
-            });
-          }
-        } else {
+    // Simple local storage authentication
+    const checkStoredUser = () => {
+      const storedUser = localStorage.getItem("userProfile");
+      if (storedUser) {
+        try {
+          const userProfile = JSON.parse(storedUser);
+          setAuthState({
+            user: userProfile,
+            isLoading: false,
+            isAuthenticated: true,
+          });
+        } catch (error) {
+          console.error("Failed to parse stored user profile:", error);
+          localStorage.removeItem("userProfile");
           setAuthState({
             user: null,
             isLoading: false,
@@ -46,16 +36,16 @@ export function useAuth() {
           });
         }
       } else {
-        localStorage.removeItem("userProfile");
         setAuthState({
           user: null,
           isLoading: false,
           isAuthenticated: false,
         });
       }
-    });
+    };
 
-    return () => unsubscribe();
+    // Load stored user on mount
+    checkStoredUser();
   }, []);
 
   const login = (user: User) => {
@@ -67,18 +57,18 @@ export function useAuth() {
     });
   };
 
-  const logout = async () => {
-    try {
-      await signOut(auth);
-      localStorage.removeItem("userProfile");
-      setAuthState({
-        user: null,
-        isLoading: false,
-        isAuthenticated: false,
-      });
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
+  const logout = () => {
+    // Clear local storage
+    localStorage.removeItem("userProfile");
+    localStorage.removeItem("demoUser");
+    localStorage.removeItem("registeredUsers");
+    
+    // Update auth state
+    setAuthState({
+      user: null,
+      isLoading: false,
+      isAuthenticated: false,
+    });
   };
 
   return {

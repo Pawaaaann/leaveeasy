@@ -9,78 +9,148 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { userRoles } from "@shared/firebaseSchema";
 import { Eye, EyeOff } from "lucide-react";
-import { db } from "@/lib/firebase";
-import { collection, addDoc, query, where, getDocs } from "firebase/firestore";
 
 export default function Login() {
   const [formData, setFormData] = useState({
     username: "",
     password: "",
     role: "",
+    firstName: "",
+    lastName: "",
+    email: "",
+    department: "",
+    studentId: "",
+    phone: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
   const { login } = useAuth();
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Basic validation
     if (!formData.username || !formData.password || !formData.role) {
       toast({
         title: "Validation Error",
-        description: "Please fill in all fields",
+        description: "Please fill in all required fields",
         variant: "destructive",
       });
       return;
     }
 
+    // Additional validation for sign up
+    if (isSignUp) {
+      if (!formData.firstName || !formData.lastName || !formData.email) {
+        toast({
+          title: "Validation Error",
+          description: "Please fill in all required fields for account creation",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      if (formData.role === "student" && !formData.studentId) {
+        toast({
+          title: "Validation Error",
+          description: "Student ID is required for student accounts",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     setIsLoading(true);
     
     try {
-      // Check dev credentials first
-      const devCredentials: Record<string, { password: string; role: string }> = {
-        "student1": { password: "password", role: "student" },
-        "mentor1": { password: "password", role: "mentor" },
-        "parent1": { password: "password", role: "parent" },
-        "hod1": { password: "password", role: "hod" },
-        "principal1": { password: "password", role: "principal" },
-        "warden1": { password: "password", role: "warden" },
-        "security1": { password: "password", role: "security" },
-      };
+      if (isSignUp) {
+        // Handle user registration
+        const newUser = {
+          id: `${formData.username}-id`,
+          username: formData.username,
+          email: formData.email,
+          role: formData.role as typeof userRoles[number],
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          department: formData.department || undefined,
+          studentId: formData.studentId || undefined,
+          phone: formData.phone || undefined,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
 
-      const credentials = devCredentials[formData.username];
-      if (!credentials || credentials.password !== formData.password || credentials.role !== formData.role) {
-        throw new Error("Invalid credentials");
-      }
+        // Store new user locally
+        const existingUsers = JSON.parse(localStorage.getItem('registeredUsers') || '{}');
+        existingUsers[formData.username] = {
+          ...newUser,
+          password: formData.password
+        };
+        localStorage.setItem('registeredUsers', JSON.stringify(existingUsers));
+        
+        login(newUser);
+        
+        toast({
+          title: "Account Created Successfully",
+          description: `Welcome, ${newUser.firstName}! Your account has been created.`,
+        });
+      } else {
+        // Handle user login
+        
+        // Check registered users first
+        const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '{}');
+        const registeredUser = registeredUsers[formData.username];
+        
+        if (registeredUser && registeredUser.password === formData.password && registeredUser.role === formData.role) {
+          login(registeredUser);
+          toast({
+            title: "Login Successful",
+            description: `Welcome back, ${registeredUser.firstName || registeredUser.username}!`,
+          });
+          return;
+        }
 
-      // Use local storage as fallback when Firebase permissions are blocked
-      let user;
-      const sampleUserData: Record<string, any> = {
-        "student1": { id: "student1-id", username: "student1", email: "student1@college.edu", role: "student", firstName: "John", lastName: "Doe", department: "Computer Science", studentId: "CS001", parentId: "parent1" },
-        "mentor1": { id: "mentor1-id", username: "mentor1", email: "mentor1@college.edu", role: "mentor", firstName: "Dr. Jane", lastName: "Smith", department: "Computer Science" },
-        "parent1": { id: "parent1-id", username: "parent1", email: "parent1@email.com", role: "parent", firstName: "Robert", lastName: "Doe", phone: "+1234567890" },
-        "hod1": { id: "hod1-id", username: "hod1", email: "hod1@college.edu", role: "hod", firstName: "Dr. Michael", lastName: "Johnson", department: "Computer Science" },
-        "principal1": { id: "principal1-id", username: "principal1", email: "principal@college.edu", role: "principal", firstName: "Dr. Sarah", lastName: "Wilson" },
-        "warden1": { id: "warden1-id", username: "warden1", email: "warden1@college.edu", role: "warden", firstName: "Mr. David", lastName: "Brown" },
-        "security1": { id: "security1-id", username: "security1", email: "security1@college.edu", role: "security", firstName: "Officer", lastName: "Garcia" },
-      };
-      
-      user = sampleUserData[formData.username];
-      
-      if (!user || user.role !== formData.role) {
-        throw new Error("Invalid credentials");
+        // Check dev credentials as fallback
+        const devCredentials: Record<string, { password: string; role: string }> = {
+          "student1": { password: "password", role: "student" },
+          "mentor1": { password: "password", role: "mentor" },
+          "parent1": { password: "password", role: "parent" },
+          "hod1": { password: "password", role: "hod" },
+          "principal1": { password: "password", role: "principal" },
+          "warden1": { password: "password", role: "warden" },
+          "security1": { password: "password", role: "security" },
+        };
+
+        const credentials = devCredentials[formData.username];
+        if (!credentials || credentials.password !== formData.password || credentials.role !== formData.role) {
+          throw new Error("Invalid credentials");
+        }
+
+        // Use sample user data for dev accounts
+        const sampleUserData: Record<string, any> = {
+          "student1": { id: "student1-id", username: "student1", email: "student1@college.edu", role: "student", firstName: "John", lastName: "Doe", department: "Computer Science", studentId: "CS001", parentId: "parent1" },
+          "mentor1": { id: "mentor1-id", username: "mentor1", email: "mentor1@college.edu", role: "mentor", firstName: "Dr. Jane", lastName: "Smith", department: "Computer Science" },
+          "parent1": { id: "parent1-id", username: "parent1", email: "parent1@email.com", role: "parent", firstName: "Robert", lastName: "Doe", phone: "+1234567890" },
+          "hod1": { id: "hod1-id", username: "hod1", email: "hod1@college.edu", role: "hod", firstName: "Dr. Michael", lastName: "Johnson", department: "Computer Science" },
+          "principal1": { id: "principal1-id", username: "principal1", email: "principal@college.edu", role: "principal", firstName: "Dr. Sarah", lastName: "Wilson" },
+          "warden1": { id: "warden1-id", username: "warden1", email: "warden1@college.edu", role: "warden", firstName: "Mr. David", lastName: "Brown" },
+          "security1": { id: "security1-id", username: "security1", email: "security1@college.edu", role: "security", firstName: "Officer", lastName: "Garcia" },
+        };
+        
+        const user = sampleUserData[formData.username];
+        
+        if (!user || user.role !== formData.role) {
+          throw new Error("Invalid credentials");
+        }
+        
+        login(user);
+        
+        toast({
+          title: "Login Successful",
+          description: `Welcome back, ${user.firstName || user.username}!`,
+        });
       }
-      
-      // Store user in localStorage for demo purposes
-      localStorage.setItem('demoUser', JSON.stringify(user));
-      
-      login(user);
-      
-      toast({
-        title: "Login Successful",
-        description: `Welcome back, ${user.firstName || user.username}!`,
-      });
     } catch (error) {
       console.error("Login error:", error);
       toast({
@@ -102,16 +172,16 @@ export default function Login() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-bold text-primary mb-2">
-            College Leave Portal
+            {isSignUp ? "Create Account" : "College Leave Portal"}
           </CardTitle>
           <CardDescription>
-            Automated Leave Management System
+            {isSignUp ? "Join the Automated Leave Management System" : "Automated Leave Management System"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="userType">Login As</Label>
+              <Label htmlFor="userType">{isSignUp ? "Account Type" : "Login As"}</Label>
               <Select value={formData.role} onValueChange={(value) => handleInputChange("role", value)}>
                 <SelectTrigger data-testid="select-role">
                   <SelectValue placeholder="Select your role" />
@@ -129,8 +199,91 @@ export default function Login() {
               </Select>
             </div>
             
+            {isSignUp && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="firstName">First Name *</Label>
+                    <Input
+                      id="firstName"
+                      type="text"
+                      placeholder="Enter first name"
+                      value={formData.firstName}
+                      onChange={(e) => handleInputChange("firstName", e.target.value)}
+                      data-testid="input-firstName"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="lastName">Last Name *</Label>
+                    <Input
+                      id="lastName"
+                      type="text"
+                      placeholder="Enter last name"
+                      value={formData.lastName}
+                      onChange={(e) => handleInputChange("lastName", e.target.value)}
+                      data-testid="input-lastName"
+                    />
+                  </div>
+                </div>
+                
+                <div>
+                  <Label htmlFor="email">Email *</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="Enter email address"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange("email", e.target.value)}
+                    data-testid="input-email"
+                  />
+                </div>
+                
+                {formData.role === "student" && (
+                  <div>
+                    <Label htmlFor="studentId">Student ID *</Label>
+                    <Input
+                      id="studentId"
+                      type="text"
+                      placeholder="Enter student ID"
+                      value={formData.studentId}
+                      onChange={(e) => handleInputChange("studentId", e.target.value)}
+                      data-testid="input-studentId"
+                    />
+                  </div>
+                )}
+                
+                {(formData.role === "student" || formData.role === "mentor" || formData.role === "hod") && (
+                  <div>
+                    <Label htmlFor="department">Department</Label>
+                    <Input
+                      id="department"
+                      type="text"
+                      placeholder="Enter department"
+                      value={formData.department}
+                      onChange={(e) => handleInputChange("department", e.target.value)}
+                      data-testid="input-department"
+                    />
+                  </div>
+                )}
+                
+                {formData.role === "parent" && (
+                  <div>
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="Enter phone number"
+                      value={formData.phone}
+                      onChange={(e) => handleInputChange("phone", e.target.value)}
+                      data-testid="input-phone"
+                    />
+                  </div>
+                )}
+              </>
+            )}
+            
             <div>
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">Username *</Label>
               <Input
                 id="username"
                 type="text"
@@ -142,7 +295,7 @@ export default function Login() {
             </div>
             
             <div>
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">Password *</Label>
               <div className="relative">
                 <Input
                   id="password"
@@ -174,16 +327,41 @@ export default function Login() {
               type="submit" 
               className="w-full" 
               disabled={isLoading}
-              data-testid="button-login"
+              data-testid={isSignUp ? "button-signup" : "button-login"}
             >
-              {isLoading ? "Logging in..." : "Login"}
+              {isLoading ? (isSignUp ? "Creating Account..." : "Logging in...") : (isSignUp ? "Create Account" : "Login")}
             </Button>
           </form>
           
-          <div className="mt-6 text-center">
-            <a href="#" className="text-sm text-primary hover:underline">
-              Forgot Password?
-            </a>
+          <div className="mt-6 text-center space-y-2">
+            <Button
+              variant="link"
+              onClick={() => {
+                setIsSignUp(!isSignUp);
+                setFormData({
+                  username: "",
+                  password: "",
+                  role: "",
+                  firstName: "",
+                  lastName: "",
+                  email: "",
+                  department: "",
+                  studentId: "",
+                  phone: "",
+                });
+              }}
+              data-testid="button-toggle-mode"
+            >
+              {isSignUp ? "Already have an account? Login" : "New user? Create an account"}
+            </Button>
+            
+            {!isSignUp && (
+              <div>
+                <a href="#" className="text-sm text-primary hover:underline">
+                  Forgot Password?
+                </a>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
