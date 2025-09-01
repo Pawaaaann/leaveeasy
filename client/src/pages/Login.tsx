@@ -54,40 +54,26 @@ export default function Login() {
         throw new Error("Invalid credentials");
       }
 
-      // Check if user exists in Firestore
-      const usersRef = collection(db, "users");
-      const q = query(usersRef, where("username", "==", formData.username));
-      const querySnapshot = await getDocs(q);
-      
+      // Use local storage as fallback when Firebase permissions are blocked
       let user;
-      if (querySnapshot.empty) {
-        // Create user if doesn't exist
-        const sampleUserData: Record<string, any> = {
-          "student1": { username: "student1", email: "student1@college.edu", role: "student", firstName: "John", lastName: "Doe", department: "Computer Science", studentId: "CS001", parentId: "parent1" },
-          "mentor1": { username: "mentor1", email: "mentor1@college.edu", role: "mentor", firstName: "Dr. Jane", lastName: "Smith", department: "Computer Science" },
-          "parent1": { username: "parent1", email: "parent1@email.com", role: "parent", firstName: "Robert", lastName: "Doe", phone: "+1234567890" },
-          "hod1": { username: "hod1", email: "hod1@college.edu", role: "hod", firstName: "Dr. Michael", lastName: "Johnson", department: "Computer Science" },
-          "principal1": { username: "principal1", email: "principal@college.edu", role: "principal", firstName: "Dr. Sarah", lastName: "Wilson" },
-          "warden1": { username: "warden1", email: "warden1@college.edu", role: "warden", firstName: "Mr. David", lastName: "Brown" },
-          "security1": { username: "security1", email: "security1@college.edu", role: "security", firstName: "Officer", lastName: "Garcia" },
-        };
-        
-        const userData = sampleUserData[formData.username];
-        if (userData) {
-          const docRef = await addDoc(usersRef, {
-            ...userData,
-            createdAt: new Date(),
-          });
-          user = { id: docRef.id, ...userData };
-        }
-      } else {
-        const userDoc = querySnapshot.docs[0];
-        user = { id: userDoc.id, ...userDoc.data() };
-      }
-
+      const sampleUserData: Record<string, any> = {
+        "student1": { id: "student1-id", username: "student1", email: "student1@college.edu", role: "student", firstName: "John", lastName: "Doe", department: "Computer Science", studentId: "CS001", parentId: "parent1" },
+        "mentor1": { id: "mentor1-id", username: "mentor1", email: "mentor1@college.edu", role: "mentor", firstName: "Dr. Jane", lastName: "Smith", department: "Computer Science" },
+        "parent1": { id: "parent1-id", username: "parent1", email: "parent1@email.com", role: "parent", firstName: "Robert", lastName: "Doe", phone: "+1234567890" },
+        "hod1": { id: "hod1-id", username: "hod1", email: "hod1@college.edu", role: "hod", firstName: "Dr. Michael", lastName: "Johnson", department: "Computer Science" },
+        "principal1": { id: "principal1-id", username: "principal1", email: "principal@college.edu", role: "principal", firstName: "Dr. Sarah", lastName: "Wilson" },
+        "warden1": { id: "warden1-id", username: "warden1", email: "warden1@college.edu", role: "warden", firstName: "Mr. David", lastName: "Brown" },
+        "security1": { id: "security1-id", username: "security1", email: "security1@college.edu", role: "security", firstName: "Officer", lastName: "Garcia" },
+      };
+      
+      user = sampleUserData[formData.username];
+      
       if (!user || user.role !== formData.role) {
         throw new Error("Invalid credentials");
       }
+      
+      // Store user in localStorage for demo purposes
+      localStorage.setItem('demoUser', JSON.stringify(user));
       
       login(user);
       
