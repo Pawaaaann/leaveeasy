@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./firebaseStorage";
 import { QrCodeService } from "./services/qrCodeService";
@@ -7,16 +7,25 @@ import { insertLeaveRequestSchema, insertUserSchema } from "@shared/firebaseSche
 import { seedSampleUsers, devCredentials } from "./seedData";
 import { z } from "zod";
 
-const authMiddleware = (req: any, res: any, next: any) => {
-  const userId = req.headers["x-user-id"];
-  const userRole = req.headers["x-user-role"];
+declare global {
+  namespace Express {
+    interface Request {
+      userId?: string;
+      userRole?: string;
+    }
+  }
+}
+
+const authMiddleware = (req: Request, res: Response, next: any) => {
+  const userId = Array.isArray(req.headers["x-user-id"]) ? req.headers["x-user-id"][0] : req.headers["x-user-id"];
+  const userRole = Array.isArray(req.headers["x-user-role"]) ? req.headers["x-user-role"][0] : req.headers["x-user-role"];
   
   if (!userId || !userRole) {
     return res.status(401).json({ message: "Authentication required" });
   }
   
-  req.userId = userId;
-  req.userRole = userRole;
+  req.userId = userId as string;
+  req.userRole = userRole as string;
   next();
 };
 
@@ -70,7 +79,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/users/role/:role", authMiddleware, async (req, res) => {
+  app.get("/api/users/role/:role", authMiddleware, async (req: Request, res: Response) => {
     try {
       const { role } = req.params;
       const users = await storage.getUsersByRole(role);
@@ -82,7 +91,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Leave request routes
-  app.post("/api/leave-requests", authMiddleware, async (req, res) => {
+  app.post("/api/leave-requests", authMiddleware, async (req: Request, res: Response) => {
     try {
       const requestData = insertLeaveRequestSchema.parse({
         ...req.body,
@@ -96,10 +105,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         leaveRequestId: leaveRequest.id,
         approverId: "mentor-placeholder", // In real app, get from department
         approverRole: "mentor",
+        status: "pending",
       });
       
       // Notify mentor
-      const student = await storage.getUser(req.userId);
+      const student = await storage.getUser(req.userId!);
       if (student) {
         await NotificationService.notifyApprover(
           "mentor-placeholder",
@@ -116,7 +126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/leave-requests/student/:studentId", authMiddleware, async (req, res) => {
+  app.get("/api/leave-requests/student/:studentId", authMiddleware, async (req: Request, res: Response) => {
     try {
       const { studentId } = req.params;
       
@@ -134,9 +144,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/leave-requests/pending", authMiddleware, async (req, res) => {
+  app.get("/api/leave-requests/pending", authMiddleware, async (req: Request, res: Response) => {
     try {
-      const requests = await storage.getPendingRequestsByApprover(req.userId, req.userRole);
+      const requests = await storage.getPendingRequestsByApprover(req.userId!, req.userRole!);
       
       // Get additional details for each request
       const requestsWithDetails = await Promise.all(
@@ -159,7 +169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/leave-requests/:id", authMiddleware, async (req, res) => {
+  app.get("/api/leave-requests/:id", authMiddleware, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const request = await storage.getLeaveRequest(id);
@@ -183,7 +193,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Approval routes
-  app.post("/api/approvals/:requestId/approve", authMiddleware, async (req, res) => {
+  app.post("/api/approvals/:requestId/approve", authMiddleware, async (req: Request, res: Response) => {
     try {
       const { requestId } = req.params;
       const { comments } = req.body;
@@ -196,8 +206,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create approval record
       await storage.createApproval({
         leaveRequestId: requestId,
-        approverId: req.userId,
-        approverRole: req.userRole,
+        approverId: req.userId!,
+        approverRole: req.userRole as any,
         status: "approved",
         comments,
       });
@@ -213,9 +223,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         warden: { status: "approved", step: 6 },
       };
       
-      if (req.userRole in statusMap) {
+      if (req.userRole && req.userRole in statusMap) {
         const update = statusMap[req.userRole as keyof typeof statusMap];
-        newStatus = update.status;
+        newStatus = update.status as any;
         newStep = update.step;
       }
       
@@ -233,15 +243,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/approvals/:requestId/reject", authMiddleware, async (req, res) => {
+  app.post("/api/approvals/:requestId/reject", authMiddleware, async (req: Request, res: Response) => {
     try {
       const { requestId } = req.params;
       const { comments } = req.body;
       
       await storage.createApproval({
         leaveRequestId: requestId,
-        approverId: req.userId,
-        approverRole: req.userRole,
+        approverId: req.userId!,
+        approverRole: req.userRole as any,
         status: "rejected",
         comments,
       });
@@ -256,7 +266,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Parent confirmation route
-  app.post("/api/parent/confirm/:requestId", authMiddleware, async (req, res) => {
+  app.post("/api/parent/confirm/:requestId", authMiddleware, async (req: Request, res: Response) => {
     try {
       const { requestId } = req.params;
       const { confirmed } = req.body;
@@ -279,7 +289,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // QR code routes
-  app.get("/api/qr-codes/:requestId", authMiddleware, async (req, res) => {
+  app.get("/api/qr-codes/:requestId", authMiddleware, async (req: Request, res: Response) => {
     try {
       const { requestId } = req.params;
       const request = await storage.getLeaveRequest(requestId);
@@ -312,7 +322,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/qr-codes/scan", authMiddleware, async (req, res) => {
+  app.post("/api/qr-codes/scan", authMiddleware, async (req: Request, res: Response) => {
     try {
       const { qrData } = req.body;
       
@@ -320,7 +330,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Only security can scan QR codes" });
       }
       
-      const result = await QrCodeService.scanQrCode(qrData, req.userId);
+      const result = await QrCodeService.scanQrCode(qrData, req.userId!);
       
       if (result.success) {
         res.json({
@@ -341,12 +351,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dashboard stats
-  app.get("/api/dashboard/stats", authMiddleware, async (req, res) => {
+  app.get("/api/dashboard/stats", authMiddleware, async (req: Request, res: Response) => {
     try {
       let stats = {};
       
       if (req.userRole === "student") {
-        const requests = await storage.getLeaveRequestsByStudent(req.userId);
+        const requests = await storage.getLeaveRequestsByStudent(req.userId!);
         const pending = requests.filter(r => r.status === "pending").length;
         const approved = requests.filter(r => r.status === "approved").length;
         
@@ -355,8 +365,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           approvedThisMonth: approved,
           totalRequests: requests.length,
         };
-      } else if (["mentor", "hod", "principal", "warden"].includes(req.userRole)) {
-        const pendingRequests = await storage.getPendingRequestsByApprover(req.userId, req.userRole);
+      } else if (req.userRole && ["mentor", "hod", "principal", "warden"].includes(req.userRole)) {
+        const pendingRequests = await storage.getPendingRequestsByApprover(req.userId!, req.userRole!);
         const overdueReturns = await storage.getOverdueReturns();
         
         stats = {

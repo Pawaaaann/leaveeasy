@@ -1,5 +1,17 @@
 import { adminDb } from "./firebaseAdmin";
-import { FieldValue } from "firebase-admin/firestore";
+import { 
+  collection, 
+  doc, 
+  addDoc, 
+  getDoc, 
+  getDocs, 
+  updateDoc, 
+  query, 
+  where, 
+  orderBy, 
+  limit,
+  Timestamp 
+} from "firebase/firestore";
 import type {
   User,
   InsertUser,
@@ -59,24 +71,26 @@ export class FirebaseStorage implements IFirebaseStorage {
 
   // User operations
   async getUser(id: string): Promise<User | undefined> {
-    const docRef = adminDb.collection("users").doc(id);
-    const docSnap = await docRef.get();
+    const docRef = doc(adminDb, "users", id);
+    const docSnap = await getDoc(docRef);
     
-    if (docSnap.exists) {
+    if (docSnap.exists()) {
       return this.fromFirestoreData({ id: docSnap.id, ...docSnap.data() }) as User;
     }
     return undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    const querySnapshot = await adminDb.collection("users")
-      .where("username", "==", username)
-      .limit(1)
-      .get();
+    const q = query(
+      collection(adminDb, "users"),
+      where("username", "==", username),
+      limit(1)
+    );
+    const querySnapshot = await getDocs(q);
     
     if (!querySnapshot.empty) {
-      const doc = querySnapshot.docs[0];
-      return this.fromFirestoreData({ id: doc.id, ...doc.data() }) as User;
+      const docSnap = querySnapshot.docs[0];
+      return this.fromFirestoreData({ id: docSnap.id, ...docSnap.data() }) as User;
     }
     return undefined;
   }
@@ -89,17 +103,19 @@ export class FirebaseStorage implements IFirebaseStorage {
       updatedAt: now,
     };
     
-    const docRef = await adminDb.collection("users").add(this.toFirestoreData(userWithTimestamps));
+    const docRef = await addDoc(collection(adminDb, "users"), this.toFirestoreData(userWithTimestamps));
     return { id: docRef.id, ...userWithTimestamps } as User;
   }
 
   async getUsersByRole(role: string): Promise<User[]> {
-    const querySnapshot = await adminDb.collection("users")
-      .where("role", "==", role)
-      .get();
+    const q = query(
+      collection(adminDb, "users"),
+      where("role", "==", role)
+    );
+    const querySnapshot = await getDocs(q);
     
-    return querySnapshot.docs.map(doc => 
-      this.fromFirestoreData({ id: doc.id, ...doc.data() }) as User
+    return querySnapshot.docs.map(docSnap => 
+      this.fromFirestoreData({ id: docSnap.id, ...docSnap.data() }) as User
     );
   }
 
@@ -114,28 +130,30 @@ export class FirebaseStorage implements IFirebaseStorage {
       updatedAt: now,
     };
     
-    const docRef = await adminDb.collection("leaveRequests").add(this.toFirestoreData(requestWithDefaults));
+    const docRef = await addDoc(collection(adminDb, "leaveRequests"), this.toFirestoreData(requestWithDefaults));
     return { id: docRef.id, ...requestWithDefaults } as LeaveRequest;
   }
 
   async getLeaveRequest(id: string): Promise<LeaveRequest | undefined> {
-    const docRef = adminDb.collection("leaveRequests").doc(id);
-    const docSnap = await docRef.get();
+    const docRef = doc(adminDb, "leaveRequests", id);
+    const docSnap = await getDoc(docRef);
     
-    if (docSnap.exists) {
+    if (docSnap.exists()) {
       return this.fromFirestoreData({ id: docSnap.id, ...docSnap.data() }) as LeaveRequest;
     }
     return undefined;
   }
 
   async getLeaveRequestsByStudent(studentId: string): Promise<LeaveRequest[]> {
-    const querySnapshot = await adminDb.collection("leaveRequests")
-      .where("studentId", "==", studentId)
-      .orderBy("createdAt", "desc")
-      .get();
+    const q = query(
+      collection(adminDb, "leaveRequests"),
+      where("studentId", "==", studentId),
+      orderBy("createdAt", "desc")
+    );
+    const querySnapshot = await getDocs(q);
     
-    return querySnapshot.docs.map(doc => 
-      this.fromFirestoreData({ id: doc.id, ...doc.data() }) as LeaveRequest
+    return querySnapshot.docs.map(docSnap => 
+      this.fromFirestoreData({ id: docSnap.id, ...docSnap.data() }) as LeaveRequest
     );
   }
 
@@ -150,19 +168,21 @@ export class FirebaseStorage implements IFirebaseStorage {
     const step = roleStepMap[role as keyof typeof roleStepMap];
     if (!step) return [];
 
-    const querySnapshot = await adminDb.collection("leaveRequests")
-      .where("currentApprovalStep", "==", step)
-      .orderBy("createdAt", "desc")
-      .get();
+    const q = query(
+      collection(adminDb, "leaveRequests"),
+      where("currentApprovalStep", "==", step),
+      orderBy("createdAt", "desc")
+    );
+    const querySnapshot = await getDocs(q);
     
-    return querySnapshot.docs.map(doc => 
-      this.fromFirestoreData({ id: doc.id, ...doc.data() }) as LeaveRequest
+    return querySnapshot.docs.map(docSnap => 
+      this.fromFirestoreData({ id: docSnap.id, ...docSnap.data() }) as LeaveRequest
     );
   }
 
   async updateLeaveRequestStatus(id: string, status: string, currentStep: number): Promise<void> {
-    const docRef = adminDb.collection("leaveRequests").doc(id);
-    await docRef.update(this.toFirestoreData({
+    const docRef = doc(adminDb, "leaveRequests", id);
+    await updateDoc(docRef, this.toFirestoreData({
       status,
       currentApprovalStep: currentStep,
       updatedAt: new Date(),
@@ -171,13 +191,15 @@ export class FirebaseStorage implements IFirebaseStorage {
 
   async getOverdueReturns(): Promise<LeaveRequest[]> {
     const today = new Date();
-    const querySnapshot = await adminDb.collection("leaveRequests")
-      .where("status", "==", "approved")
-      .where("toDate", "<=", today)
-      .get();
+    const q = query(
+      collection(adminDb, "leaveRequests"),
+      where("status", "==", "approved"),
+      where("toDate", "<=", today)
+    );
+    const querySnapshot = await getDocs(q);
     
-    return querySnapshot.docs.map(doc => 
-      this.fromFirestoreData({ id: doc.id, ...doc.data() }) as LeaveRequest
+    return querySnapshot.docs.map(docSnap => 
+      this.fromFirestoreData({ id: docSnap.id, ...docSnap.data() }) as LeaveRequest
     );
   }
 
@@ -190,23 +212,25 @@ export class FirebaseStorage implements IFirebaseStorage {
       createdAt: now,
     };
     
-    const docRef = await adminDb.collection("approvals").add(this.toFirestoreData(approvalWithTimestamp));
+    const docRef = await addDoc(collection(adminDb, "approvals"), this.toFirestoreData(approvalWithTimestamp));
     return { id: docRef.id, ...approvalWithTimestamp } as Approval;
   }
 
   async getApprovalsByRequest(requestId: string): Promise<Approval[]> {
-    const querySnapshot = await adminDb.collection("approvals")
-      .where("leaveRequestId", "==", requestId)
-      .orderBy("createdAt", "desc")
-      .get();
+    const q = query(
+      collection(adminDb, "approvals"),
+      where("leaveRequestId", "==", requestId),
+      orderBy("createdAt", "desc")
+    );
+    const querySnapshot = await getDocs(q);
     
-    return querySnapshot.docs.map(doc => 
-      this.fromFirestoreData({ id: doc.id, ...doc.data() }) as Approval
+    return querySnapshot.docs.map(docSnap => 
+      this.fromFirestoreData({ id: docSnap.id, ...docSnap.data() }) as Approval
     );
   }
 
   async updateApprovalStatus(id: string, status: string, comments?: string): Promise<void> {
-    const docRef = adminDb.collection("approvals").doc(id);
+    const docRef = doc(adminDb, "approvals", id);
     const updateData: any = {
       status,
       comments,
@@ -216,7 +240,7 @@ export class FirebaseStorage implements IFirebaseStorage {
       updateData.approvedAt = new Date();
     }
     
-    await docRef.update(this.toFirestoreData(updateData));
+    await updateDoc(docRef, this.toFirestoreData(updateData));
   }
 
   // QR code operations
@@ -228,26 +252,28 @@ export class FirebaseStorage implements IFirebaseStorage {
       createdAt: now,
     };
     
-    const docRef = await adminDb.collection("qrCodes").add(this.toFirestoreData(qrCodeWithDefaults));
+    const docRef = await addDoc(collection(adminDb, "qrCodes"), this.toFirestoreData(qrCodeWithDefaults));
     return { id: docRef.id, ...qrCodeWithDefaults } as QrCode;
   }
 
   async getQrCodeByData(qrData: string): Promise<QrCode | undefined> {
-    const querySnapshot = await adminDb.collection("qrCodes")
-      .where("qrData", "==", qrData)
-      .limit(1)
-      .get();
+    const q = query(
+      collection(adminDb, "qrCodes"),
+      where("qrData", "==", qrData),
+      limit(1)
+    );
+    const querySnapshot = await getDocs(q);
     
     if (!querySnapshot.empty) {
-      const doc = querySnapshot.docs[0];
-      return this.fromFirestoreData({ id: doc.id, ...doc.data() }) as QrCode;
+      const docSnap = querySnapshot.docs[0];
+      return this.fromFirestoreData({ id: docSnap.id, ...docSnap.data() }) as QrCode;
     }
     return undefined;
   }
 
   async markQrCodeAsUsed(id: string, scannedBy: string): Promise<void> {
-    const docRef = adminDb.collection("qrCodes").doc(id);
-    await docRef.update(this.toFirestoreData({
+    const docRef = doc(adminDb, "qrCodes", id);
+    await updateDoc(docRef, this.toFirestoreData({
       isUsed: true,
       scannedAt: new Date(),
       scannedBy,
@@ -263,23 +289,25 @@ export class FirebaseStorage implements IFirebaseStorage {
       createdAt: now,
     };
     
-    const docRef = await adminDb.collection("notifications").add(this.toFirestoreData(notificationWithDefaults));
+    const docRef = await addDoc(collection(adminDb, "notifications"), this.toFirestoreData(notificationWithDefaults));
     return { id: docRef.id, ...notificationWithDefaults } as Notification;
   }
 
   async getPendingNotifications(): Promise<Notification[]> {
-    const querySnapshot = await adminDb.collection("notifications")
-      .where("sent", "==", false)
-      .get();
+    const q = query(
+      collection(adminDb, "notifications"),
+      where("sent", "==", false)
+    );
+    const querySnapshot = await getDocs(q);
     
-    return querySnapshot.docs.map(doc => 
-      this.fromFirestoreData({ id: doc.id, ...doc.data() }) as Notification
+    return querySnapshot.docs.map(docSnap => 
+      this.fromFirestoreData({ id: docSnap.id, ...docSnap.data() }) as Notification
     );
   }
 
   async markNotificationAsSent(id: string): Promise<void> {
-    const docRef = adminDb.collection("notifications").doc(id);
-    await docRef.update(this.toFirestoreData({
+    const docRef = doc(adminDb, "notifications", id);
+    await updateDoc(docRef, this.toFirestoreData({
       sent: true,
       sentAt: new Date(),
     }));
