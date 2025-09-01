@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle, Clock, ArrowLeft } from "lucide-react";
 import WorkflowSteps from "@/components/WorkflowSteps";
-import type { LeaveRequest } from "@shared/firebaseSchema";
+import type { LeaveRequest } from "@shared/schema";
 
 export default function WorkflowTracker() {
   const { requestId } = useParams();

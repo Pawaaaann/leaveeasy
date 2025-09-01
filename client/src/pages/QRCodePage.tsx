@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle, Download, Share, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import type { QrCode } from "@shared/firebaseSchema";
+import type { QrCode } from "@shared/schema";
 
 export default function QRCodePage() {
   const { requestId } = useParams();

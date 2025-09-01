@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { getAuthHeaders } from "@/lib/authUtils";
-import { leaveTypes, studentTypes } from "@shared/firebaseSchema";
+import { leaveTypes, studentTypes } from "@shared/schema";
 
 const formSchema = z.object({
   leaveType: z.enum(leaveTypes),

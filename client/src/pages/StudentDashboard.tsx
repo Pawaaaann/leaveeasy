@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import LeaveRequestForm from "@/components/LeaveRequestForm";
 import StatsCard from "@/components/StatsCard";
 import { Link } from "wouter";
-import type { LeaveRequest } from "@shared/firebaseSchema";
+import type { LeaveRequest } from "@shared/schema";
 
 export default function StudentDashboard() {
   const { user, logout } = useAuth();

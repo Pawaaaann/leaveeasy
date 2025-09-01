@@ -1,10 +1,9 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./firebaseStorage";
+import { storage } from "./storage";
 import { QrCodeService } from "./services/qrCodeService";
 import { NotificationService } from "./services/notificationService";
-import { insertLeaveRequestSchema, insertUserSchema } from "@shared/firebaseSchema";
-import { seedSampleUsers, devCredentials } from "./seedData";
+import { insertLeaveRequestSchema, insertUserSchema } from "@shared/schema";
 import { z } from "zod";
 
 declare global {
@@ -30,72 +29,18 @@ const authMiddleware = (req: Request, res: Response, next: any) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Seed sample users on startup
-  await seedSampleUsers();
-
-  // Auth routes (simplified for Firebase integration)
-  app.post("/api/auth/login", async (req, res) => {
-    try {
-      const { username, password, role } = req.body;
-      
-      // Check dev credentials
-      const credentials = devCredentials[username as keyof typeof devCredentials];
-      if (!credentials || credentials.password !== password || credentials.role !== role) {
-        return res.status(401).json({ message: "Invalid credentials" });
-      }
-      
-      let user = await storage.getUserByUsername(username);
-      
-      // If user doesn't exist, create them (for development)
-      if (!user) {
-        const sampleUserData = {
-          "student1": { username: "student1", email: "student1@college.edu", role: "student", firstName: "John", lastName: "Doe", department: "Computer Science", studentId: "CS001", parentId: "parent1" },
-          "mentor1": { username: "mentor1", email: "mentor1@college.edu", role: "mentor", firstName: "Dr. Jane", lastName: "Smith", department: "Computer Science" },
-          "parent1": { username: "parent1", email: "parent1@email.com", role: "parent", firstName: "Robert", lastName: "Doe", phone: "+1234567890" },
-          "hod1": { username: "hod1", email: "hod1@college.edu", role: "hod", firstName: "Dr. Michael", lastName: "Johnson", department: "Computer Science" },
-          "principal1": { username: "principal1", email: "principal@college.edu", role: "principal", firstName: "Dr. Sarah", lastName: "Wilson" },
-          "warden1": { username: "warden1", email: "warden1@college.edu", role: "warden", firstName: "Mr. David", lastName: "Brown" },
-          "security1": { username: "security1", email: "security1@college.edu", role: "security", firstName: "Officer", lastName: "Garcia" },
-        };
-        
-        const userData = sampleUserData[username as keyof typeof sampleUserData];
-        if (userData) {
-          try {
-            user = await storage.createUser(userData as any);
-            console.log(`Created user on login: ${username}`);
-          } catch (createError) {
-            console.error(`Failed to create user ${username}:`, createError);
-            return res.status(500).json({ message: "Unable to create user. Please check Firebase permissions." });
-          }
-        }
-      }
-      
-      if (!user || user.role !== role) {
-        return res.status(401).json({ message: "Invalid credentials" });
-      }
-      
-      res.json({
-        user: {
-          id: user.id,
-          username: user.username,
-          role: user.role,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          department: user.department,
-          studentId: user.studentId,
-          parentId: user.parentId,
-        },
-      });
-    } catch (error) {
-      console.error("Login error:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
 
   // User routes
   app.post("/api/users", async (req, res) => {
     try {
       const userData = insertUserSchema.parse(req.body);
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByUsername(userData.username);
+      if (existingUser) {
+        return res.json(existingUser); // Return existing user
+      }
+      
       const user = await storage.createUser(userData);
       res.json(user);
     } catch (error) {
@@ -161,40 +106,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
       
-      try {
-        const requests = await storage.getLeaveRequestsByStudent(studentId);
-        res.json(requests);
-      } catch (firebaseError) {
-        console.log("Firebase permission error, using fallback data for development");
-        // Provide sample leave requests for development when Firebase permissions are restricted
-        const sampleRequests = [
-          {
-            id: "sample-1",
-            studentId: studentId,
-            leaveType: "sick",
-            reason: "Medical appointment",
-            startDate: new Date(Date.now() - 86400000), // Yesterday
-            endDate: new Date(Date.now() + 86400000), // Tomorrow
-            status: "pending",
-            currentStep: 1,
-            createdAt: new Date(Date.now() - 86400000),
-            updatedAt: new Date(Date.now() - 86400000),
-          },
-          {
-            id: "sample-2",
-            studentId: studentId,
-            leaveType: "personal",
-            reason: "Family function",
-            startDate: new Date(Date.now() + 172800000), // Day after tomorrow
-            endDate: new Date(Date.now() + 259200000), // 3 days from now
-            status: "approved",
-            currentStep: 5,
-            createdAt: new Date(Date.now() - 172800000),
-            updatedAt: new Date(Date.now() - 86400000),
-          }
-        ];
-        res.json(sampleRequests);
-      }
+      const requests = await storage.getLeaveRequestsByStudent(studentId);
+      res.json(requests);
     } catch (error) {
       console.error("Get student requests error:", error);
       res.status(500).json({ message: "Internal server error" });
@@ -412,45 +325,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       let stats = {};
       
-      try {
-        if (req.userRole === "student") {
-          const requests = await storage.getLeaveRequestsByStudent(req.userId!);
-          const pending = requests.filter(r => r.status === "pending").length;
-          const approved = requests.filter(r => r.status === "approved").length;
-          
-          stats = {
-            pendingRequests: pending,
-            approvedThisMonth: approved,
-            totalRequests: requests.length,
-          };
-        } else if (req.userRole && ["mentor", "hod", "principal", "warden"].includes(req.userRole)) {
-          const pendingRequests = await storage.getPendingRequestsByApprover(req.userId!, req.userRole!);
-          const overdueReturns = await storage.getOverdueReturns();
-          
-          stats = {
-            pending: pendingRequests.length,
-            overdue: overdueReturns.length,
-            totalMonth: 45, // This would be calculated from actual data
-            approvedToday: 12, // This would be calculated from actual data
-          };
-        }
-      } catch (firebaseError) {
-        console.log("Firebase permission error, using fallback stats for development");
-        // Provide sample stats for development when Firebase permissions are restricted
-        if (req.userRole === "student") {
-          stats = {
-            pendingRequests: 1,
-            approvedThisMonth: 2,
-            totalRequests: 5,
-          };
-        } else if (req.userRole && ["mentor", "hod", "principal", "warden"].includes(req.userRole)) {
-          stats = {
-            pending: 3,
-            overdue: 1,
-            totalMonth: 45,
-            approvedToday: 12,
-          };
-        }
+      if (req.userRole === "student") {
+        const requests = await storage.getLeaveRequestsByStudent(req.userId!);
+        const pending = requests.filter(r => r.status === "pending").length;
+        const approved = requests.filter(r => r.status === "approved").length;
+        
+        stats = {
+          pendingRequests: pending,
+          approvedThisMonth: approved,
+          totalRequests: requests.length,
+        };
+      } else if (req.userRole && ["mentor", "hod", "principal", "warden"].includes(req.userRole)) {
+        const pendingRequests = await storage.getPendingRequestsByApprover(req.userId!, req.userRole!);
+        const overdueReturns = await storage.getOverdueReturns();
+        
+        stats = {
+          pending: pendingRequests.length,
+          overdue: overdueReturns.length,
+          totalMonth: 45, // This would be calculated from actual data
+          approvedToday: 12, // This would be calculated from actual data
+        };
       }
       
       res.json(stats);

@@ -5,7 +5,7 @@ import { Bell, CheckSquare, BarChart3, Clock, CheckCircle, Calendar, AlertTriang
 import { useAuth } from "@/hooks/useAuth";
 import ApprovalCard from "@/components/ApprovalCard";
 import StatsCard from "@/components/StatsCard";
-import type { LeaveRequest } from "@shared/firebaseSchema";
+import type { LeaveRequest } from "@shared/schema";
 
 export default function ApprovalDashboard() {
   const { user, logout } = useAuth();

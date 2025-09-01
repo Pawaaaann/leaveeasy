@@ -1,5 +1,5 @@
-import { storage } from "../firebaseStorage";
-import type { InsertNotification } from "@shared/firebaseSchema";
+import { storage } from "../storage";
+import type { InsertNotification } from "@shared/schema";
 
 export class NotificationService {
   static async notifyParent(

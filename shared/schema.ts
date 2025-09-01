@@ -147,3 +147,10 @@ export type QrCode = typeof qrCodes.$inferSelect;
 export type InsertQrCode = z.infer<typeof insertQrCodeSchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+
+// Export enums as arrays for compatibility
+export const leaveTypes = leaveTypeEnum.enumValues;
+export const studentTypes = studentTypeEnum.enumValues;
+export const userRoles = userRoleEnum.enumValues;
+export const requestStatuses = requestStatusEnum.enumValues;
+export const approvalStatuses = approvalStatusEnum.enumValues;

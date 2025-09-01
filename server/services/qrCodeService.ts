@@ -1,6 +1,6 @@
 import crypto from "crypto";
-import { storage } from "../firebaseStorage";
-import type { InsertQrCode } from "@shared/firebaseSchema";
+import { storage } from "../storage";
+import type { InsertQrCode } from "@shared/schema";
 
 export class QrCodeService {
   static generateQrData(leaveRequestId: string, studentId: string): string {
