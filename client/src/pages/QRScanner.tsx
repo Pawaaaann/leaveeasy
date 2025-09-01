@@ -22,10 +22,7 @@ export default function QRScanner() {
       const response = await apiRequest(
         "POST", 
         "/api/qr-codes/scan", 
-        { qrData: qrCode },
-        {
-          headers: getAuthHeaders(user),
-        }
+        { qrData: qrCode }
       );
       return response.json();
     },

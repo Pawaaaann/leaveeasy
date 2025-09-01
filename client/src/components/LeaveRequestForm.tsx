@@ -54,9 +54,6 @@ export default function LeaveRequestForm({ onSuccess, onCancel }: LeaveRequestFo
           ...data,
           fromDate: new Date(data.fromDate).toISOString(),
           toDate: new Date(data.toDate).toISOString(),
-        },
-        {
-          headers: getAuthHeaders(user),
         }
       );
       return response.json();

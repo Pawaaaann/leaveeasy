@@ -10,11 +10,11 @@ import type { LeaveRequest } from "@shared/firebaseSchema";
 export default function ApprovalDashboard() {
   const { user, logout } = useAuth();
 
-  const { data: stats } = useQuery({
+  const { data: stats = {} } = useQuery({
     queryKey: ["/api/dashboard/stats"],
   });
 
-  const { data: pendingRequests = [] } = useQuery({
+  const { data: pendingRequests = [] } = useQuery<LeaveRequest[]>({
     queryKey: ["/api/leave-requests/pending"],
   });
 
@@ -95,25 +95,25 @@ export default function ApprovalDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               <StatsCard
                 title="Pending"
-                value={stats?.pending || 0}
+                value={(stats as any)?.pending || 0}
                 icon={Clock}
                 iconColor="text-yellow-500"
               />
               <StatsCard
                 title="Approved Today"
-                value={stats?.approvedToday || 0}
+                value={(stats as any)?.approvedToday || 0}
                 icon={CheckCircle}
                 iconColor="text-green-500"
               />
               <StatsCard
                 title="Total This Month"
-                value={stats?.totalMonth || 0}
+                value={(stats as any)?.totalMonth || 0}
                 icon={Calendar}
                 iconColor="text-blue-500"
               />
               <StatsCard
                 title="Overdue Returns"
-                value={stats?.overdue || 0}
+                value={(stats as any)?.overdue || 0}
                 icon={AlertTriangle}
                 iconColor="text-red-500"
               />

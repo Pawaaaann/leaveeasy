@@ -27,10 +27,7 @@ export default function ApprovalCard({ request }: ApprovalCardProps) {
       const response = await apiRequest(
         "POST", 
         `/api/approvals/${request.id}/approve`,
-        { comments },
-        {
-          headers: getAuthHeaders(user),
-        }
+        { comments }
       );
       return response.json();
     },
@@ -60,10 +57,7 @@ export default function ApprovalCard({ request }: ApprovalCardProps) {
       const response = await apiRequest(
         "POST", 
         `/api/approvals/${request.id}/reject`,
-        { comments },
-        {
-          headers: getAuthHeaders(user),
-        }
+        { comments }
       );
       return response.json();
     },

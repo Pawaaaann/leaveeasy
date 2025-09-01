@@ -14,11 +14,11 @@ export default function StudentDashboard() {
   const { user, logout } = useAuth();
   const [showForm, setShowForm] = useState(false);
 
-  const { data: stats } = useQuery({
+  const { data: stats = {} } = useQuery({
     queryKey: ["/api/dashboard/stats"],
   });
 
-  const { data: leaveRequests = [] } = useQuery({
+  const { data: leaveRequests = [] } = useQuery<LeaveRequest[]>({
     queryKey: ["/api/leave-requests/student", user?.id],
   });
 
@@ -100,13 +100,13 @@ export default function StudentDashboard() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               <StatsCard
                 title="Pending Requests"
-                value={stats?.pendingRequests || 0}
+                value={(stats as any)?.pendingRequests || 0}
                 icon={Clock}
                 iconColor="text-yellow-500"
               />
               <StatsCard
                 title="Approved This Month"
-                value={stats?.approvedThisMonth || 0}
+                value={(stats as any)?.approvedThisMonth || 0}
                 icon={CheckCircle}
                 iconColor="text-green-500"
               />
