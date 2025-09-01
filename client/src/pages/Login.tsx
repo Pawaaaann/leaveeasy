@@ -8,8 +8,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { userRoles } from "@shared/schema";
-import { Eye, EyeOff } from "lucide-react";
-import { signInWithPopup, GoogleAuthProvider, signOut } from "firebase/auth";
+import { Eye, EyeOff, Mail } from "lucide-react";
+import { 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword
+} from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
 export default function Login() {
@@ -29,6 +34,95 @@ export default function Login() {
   const [isSignUp, setIsSignUp] = useState(false);
   const { login } = useAuth();
   const { toast } = useToast();
+
+  const handleEmailLogin = async () => {
+    if (!formData.email || !formData.password || !formData.role) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in email, password, and select your role",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    
+    try {
+      let firebaseUser;
+      
+      if (isSignUp) {
+        // Create new account
+        if (!formData.firstName) {
+          toast({
+            title: "Missing Information",
+            description: "Please enter your first name for account creation",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+        
+        const result = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+        firebaseUser = result.user;
+      } else {
+        // Sign in existing user
+        const result = await signInWithEmailAndPassword(auth, formData.email, formData.password);
+        firebaseUser = result.user;
+      }
+      
+      // Create user profile or get existing one
+      const userData = {
+        id: firebaseUser.uid,
+        username: formData.username || firebaseUser.email?.split('@')[0] || 'user',
+        email: firebaseUser.email || '',
+        role: formData.role as (typeof userRoles)[number],
+        firstName: formData.firstName || '',
+        lastName: formData.lastName || '',
+        department: formData.department || undefined,
+        studentId: formData.studentId || undefined,
+        phone: formData.phone || undefined,
+      };
+      
+      // Send user data to backend to create/update user
+      try {
+        await apiRequest('POST', '/api/users', userData);
+      } catch (error) {
+        console.log('User might already exist, continuing with login');
+      }
+      
+      login({
+        ...userData,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      
+      toast({
+        title: isSignUp ? "Account Created" : "Login Successful",
+        description: `Welcome, ${userData.firstName || userData.username}!`,
+      });
+    } catch (error: any) {
+      console.error("Email login error:", error);
+      let errorMessage = "Authentication failed. Please try again.";
+      
+      if (error.code === "auth/user-not-found") {
+        errorMessage = "No account found with this email. Please sign up first.";
+      } else if (error.code === "auth/wrong-password") {
+        errorMessage = "Incorrect password. Please try again.";
+      } else if (error.code === "auth/email-already-in-use") {
+        errorMessage = "An account with this email already exists. Please sign in instead.";
+      } else if (error.code === "auth/weak-password") {
+        errorMessage = "Password should be at least 6 characters long.";
+      }
+      
+      toast({
+        title: isSignUp ? "Signup Failed" : "Login Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleGoogleLogin = async () => {
     if (!formData.role) {
@@ -79,9 +173,15 @@ export default function Login() {
       });
     } catch (error: any) {
       console.error("Google login error:", error);
+      let errorMessage = "Failed to sign in with Google. Please try again.";
+      
+      if (error.code === "auth/unauthorized-domain") {
+        errorMessage = "This domain is not authorized for Google Sign-In. Please contact support or use email login.";
+      }
+      
       toast({
         title: "Login Failed",
-        description: error.message || "Failed to sign in with Google. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -124,6 +224,47 @@ export default function Login() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Email Login Fields */}
+            <div>
+              <Label htmlFor="email">Email Address</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={formData.email}
+                onChange={(e) => handleInputChange("email", e.target.value)}
+                data-testid="input-email"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter your password"
+                  value={formData.password}
+                  onChange={(e) => handleInputChange("password", e.target.value)}
+                  data-testid="input-password"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                  data-testid="button-toggle-password"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
             
             {isSignUp && (
               <>
@@ -140,7 +281,7 @@ export default function Login() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="lastName">Last Name *</Label>
+                    <Label htmlFor="lastName">Last Name</Label>
                     <Input
                       id="lastName"
                       type="text"
@@ -153,14 +294,14 @@ export default function Login() {
                 </div>
                 
                 <div>
-                  <Label htmlFor="email">Email *</Label>
+                  <Label htmlFor="username">Username</Label>
                   <Input
-                    id="email"
-                    type="email"
-                    placeholder="Enter email address"
-                    value={formData.email}
-                    onChange={(e) => handleInputChange("email", e.target.value)}
-                    data-testid="input-email"
+                    id="username"
+                    type="text"
+                    placeholder="Enter username (optional)"
+                    value={formData.username}
+                    onChange={(e) => handleInputChange("username", e.target.value)}
+                    data-testid="input-username"
                   />
                 </div>
                 
@@ -208,8 +349,34 @@ export default function Login() {
               </>
             )}
             
+            {/* Email Login Button */}
             <Button 
               type="button" 
+              className="w-full" 
+              disabled={isLoading}
+              onClick={handleEmailLogin}
+              data-testid="button-email-login"
+            >
+              <Mail className="h-4 w-4 mr-2" />
+              {isLoading ? "Processing..." : (isSignUp ? "Create Account" : "Sign In")}
+            </Button>
+
+            {/* Divider */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+            
+            {/* Google Login Button */}
+            <Button 
+              type="button" 
+              variant="outline"
               className="w-full" 
               disabled={isLoading}
               onClick={handleGoogleLogin}
@@ -238,7 +405,7 @@ export default function Login() {
               }}
               data-testid="button-toggle-mode"
             >
-              {isSignUp ? "Already have an account? Login" : "New user? Create an account"}
+              {isSignUp ? "Already have an account? Sign In" : "New user? Create an account"}
             </Button>
             
             {!isSignUp && (
