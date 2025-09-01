@@ -9,6 +9,9 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { userRoles } from "@shared/firebaseSchema";
 import { Eye, EyeOff } from "lucide-react";
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc, getDoc } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
 
 export default function Login() {
   const [formData, setFormData] = useState({
@@ -66,90 +69,156 @@ export default function Login() {
     
     try {
       if (isSignUp) {
-        // Handle user registration
-        const newUser = {
-          id: `${formData.username}-id`,
-          username: formData.username,
-          email: formData.email,
-          role: formData.role as typeof userRoles[number],
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          department: formData.department || undefined,
-          studentId: formData.studentId || undefined,
-          phone: formData.phone || undefined,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
+        // Handle user registration with Firebase
+        try {
+          // Create Firebase auth user
+          const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+          const firebaseUser = userCredential.user;
+          
+          // Create user profile in Firestore
+          const newUser = {
+            id: firebaseUser.uid,
+            username: formData.username,
+            email: formData.email,
+            role: formData.role as typeof userRoles[number],
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            department: formData.department || undefined,
+            studentId: formData.studentId || undefined,
+            phone: formData.phone || undefined,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
 
-        // Store new user locally
-        const existingUsers = JSON.parse(localStorage.getItem('registeredUsers') || '{}');
-        existingUsers[formData.username] = {
-          ...newUser,
-          password: formData.password
-        };
-        localStorage.setItem('registeredUsers', JSON.stringify(existingUsers));
-        
-        login(newUser);
-        
-        toast({
-          title: "Account Created Successfully",
-          description: `Welcome, ${newUser.firstName}! Your account has been created.`,
-        });
+          // Store user profile in Firestore
+          await setDoc(doc(db, "users", firebaseUser.uid), newUser);
+          
+          // Store locally for immediate access
+          localStorage.setItem("userProfile", JSON.stringify(newUser));
+          
+          login(newUser);
+          
+          toast({
+            title: "Account Created Successfully",
+            description: `Welcome, ${newUser.firstName}! Your account has been created.`,
+          });
+        } catch (firebaseError: any) {
+          console.error("Firebase signup error:", firebaseError);
+          
+          // Fallback to local storage for development
+          const newUser = {
+            id: `${formData.username}-id`,
+            username: formData.username,
+            email: formData.email,
+            role: formData.role as typeof userRoles[number],
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            department: formData.department || undefined,
+            studentId: formData.studentId || undefined,
+            phone: formData.phone || undefined,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+
+          // Store new user locally as fallback
+          const existingUsers = JSON.parse(localStorage.getItem('registeredUsers') || '{}');
+          existingUsers[formData.username] = {
+            ...newUser,
+            password: formData.password
+          };
+          localStorage.setItem('registeredUsers', JSON.stringify(existingUsers));
+          
+          login(newUser);
+          
+          toast({
+            title: "Account Created Successfully",
+            description: `Welcome, ${newUser.firstName}! Your account has been created (offline mode).`,
+          });
+        }
       } else {
         // Handle user login
         
-        // Check registered users first
-        const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '{}');
-        const registeredUser = registeredUsers[formData.username];
-        
-        if (registeredUser && registeredUser.password === formData.password && registeredUser.role === formData.role) {
-          login(registeredUser);
+        // First try Firebase authentication for registered users
+        try {
+          const userCredential = await signInWithEmailAndPassword(auth, formData.email || `${formData.username}@college.edu`, formData.password);
+          const firebaseUser = userCredential.user;
+          
+          // Get user profile from Firestore
+          const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            if (userData.role === formData.role) {
+              const user = { id: firebaseUser.uid, ...userData } as any;
+              localStorage.setItem("userProfile", JSON.stringify(user));
+              login(user);
+              
+              toast({
+                title: "Login Successful",
+                description: `Welcome back, ${userData.firstName || userData.username}!`,
+              });
+              return;
+            } else {
+              throw new Error("Role mismatch");
+            }
+          } else {
+            throw new Error("User profile not found");
+          }
+        } catch (firebaseError: any) {
+          console.log("Firebase login failed, trying fallback methods:", firebaseError.message);
+          
+          // Fallback: Check registered users in localStorage
+          const registeredUsers = JSON.parse(localStorage.getItem('registeredUsers') || '{}');
+          const registeredUser = registeredUsers[formData.username];
+          
+          if (registeredUser && registeredUser.password === formData.password && registeredUser.role === formData.role) {
+            login(registeredUser);
+            toast({
+              title: "Login Successful",
+              description: `Welcome back, ${registeredUser.firstName || registeredUser.username}!`,
+            });
+            return;
+          }
+
+          // Final fallback: Check dev credentials
+          const devCredentials: Record<string, { password: string; role: string }> = {
+            "student1": { password: "password", role: "student" },
+            "mentor1": { password: "password", role: "mentor" },
+            "parent1": { password: "password", role: "parent" },
+            "hod1": { password: "password", role: "hod" },
+            "principal1": { password: "password", role: "principal" },
+            "warden1": { password: "password", role: "warden" },
+            "security1": { password: "password", role: "security" },
+          };
+
+          const credentials = devCredentials[formData.username];
+          if (!credentials || credentials.password !== formData.password || credentials.role !== formData.role) {
+            throw new Error("Invalid credentials");
+          }
+
+          // Use sample user data for dev accounts
+          const sampleUserData: Record<string, any> = {
+            "student1": { id: "student1-id", username: "student1", email: "student1@college.edu", role: "student", firstName: "John", lastName: "Doe", department: "Computer Science", studentId: "CS001", parentId: "parent1" },
+            "mentor1": { id: "mentor1-id", username: "mentor1", email: "mentor1@college.edu", role: "mentor", firstName: "Dr. Jane", lastName: "Smith", department: "Computer Science" },
+            "parent1": { id: "parent1-id", username: "parent1", email: "parent1@email.com", role: "parent", firstName: "Robert", lastName: "Doe", phone: "+1234567890" },
+            "hod1": { id: "hod1-id", username: "hod1", email: "hod1@college.edu", role: "hod", firstName: "Dr. Michael", lastName: "Johnson", department: "Computer Science" },
+            "principal1": { id: "principal1-id", username: "principal1", email: "principal@college.edu", role: "principal", firstName: "Dr. Sarah", lastName: "Wilson" },
+            "warden1": { id: "warden1-id", username: "warden1", email: "warden1@college.edu", role: "warden", firstName: "Mr. David", lastName: "Brown" },
+            "security1": { id: "security1-id", username: "security1", email: "security1@college.edu", role: "security", firstName: "Officer", lastName: "Garcia" },
+          };
+          
+          const user = sampleUserData[formData.username];
+          
+          if (!user || user.role !== formData.role) {
+            throw new Error("Invalid credentials");
+          }
+          
+          login(user);
+          
           toast({
             title: "Login Successful",
-            description: `Welcome back, ${registeredUser.firstName || registeredUser.username}!`,
+            description: `Welcome back, ${user.firstName || user.username}! (Demo mode)`,
           });
-          return;
         }
-
-        // Check dev credentials as fallback
-        const devCredentials: Record<string, { password: string; role: string }> = {
-          "student1": { password: "password", role: "student" },
-          "mentor1": { password: "password", role: "mentor" },
-          "parent1": { password: "password", role: "parent" },
-          "hod1": { password: "password", role: "hod" },
-          "principal1": { password: "password", role: "principal" },
-          "warden1": { password: "password", role: "warden" },
-          "security1": { password: "password", role: "security" },
-        };
-
-        const credentials = devCredentials[formData.username];
-        if (!credentials || credentials.password !== formData.password || credentials.role !== formData.role) {
-          throw new Error("Invalid credentials");
-        }
-
-        // Use sample user data for dev accounts
-        const sampleUserData: Record<string, any> = {
-          "student1": { id: "student1-id", username: "student1", email: "student1@college.edu", role: "student", firstName: "John", lastName: "Doe", department: "Computer Science", studentId: "CS001", parentId: "parent1" },
-          "mentor1": { id: "mentor1-id", username: "mentor1", email: "mentor1@college.edu", role: "mentor", firstName: "Dr. Jane", lastName: "Smith", department: "Computer Science" },
-          "parent1": { id: "parent1-id", username: "parent1", email: "parent1@email.com", role: "parent", firstName: "Robert", lastName: "Doe", phone: "+1234567890" },
-          "hod1": { id: "hod1-id", username: "hod1", email: "hod1@college.edu", role: "hod", firstName: "Dr. Michael", lastName: "Johnson", department: "Computer Science" },
-          "principal1": { id: "principal1-id", username: "principal1", email: "principal@college.edu", role: "principal", firstName: "Dr. Sarah", lastName: "Wilson" },
-          "warden1": { id: "warden1-id", username: "warden1", email: "warden1@college.edu", role: "warden", firstName: "Mr. David", lastName: "Brown" },
-          "security1": { id: "security1-id", username: "security1", email: "security1@college.edu", role: "security", firstName: "Officer", lastName: "Garcia" },
-        };
-        
-        const user = sampleUserData[formData.username];
-        
-        if (!user || user.role !== formData.role) {
-          throw new Error("Invalid credentials");
-        }
-        
-        login(user);
-        
-        toast({
-          title: "Login Successful",
-          description: `Welcome back, ${user.firstName || user.username}!`,
-        });
       }
     } catch (error) {
       console.error("Login error:", error);

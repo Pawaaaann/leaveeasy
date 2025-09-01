@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage } from "./firebaseStorage";
 import { QrCodeService } from "./services/qrCodeService";
 import { NotificationService } from "./services/notificationService";
 import { insertLeaveRequestSchema, insertUserSchema } from "@shared/firebaseSchema";
