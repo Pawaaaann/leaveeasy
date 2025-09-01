@@ -62,12 +62,21 @@ export async function seedSampleUsers() {
 
   try {
     for (const userData of sampleUsers) {
-      const existingUser = await storage.getUserByUsername(userData.username);
-      if (!existingUser) {
-        await storage.createUser(userData);
-        console.log(`Created user: ${userData.username}`);
-      } else {
-        console.log(`User already exists: ${userData.username}`);
+      try {
+        const existingUser = await storage.getUserByUsername(userData.username);
+        if (!existingUser) {
+          await storage.createUser(userData);
+          console.log(`Created user: ${userData.username}`);
+        } else {
+          console.log(`User already exists: ${userData.username}`);
+        }
+      } catch (firebaseError: any) {
+        if (firebaseError.code === 'permission-denied') {
+          console.log(`Firebase permission restricted - skipping user seeding for development`);
+          console.log(`Application will use fallback data when Firebase permissions are restricted`);
+          return; // Exit early since permissions are restricted
+        }
+        throw firebaseError; // Re-throw if it's not a permission error
       }
     }
     console.log("Sample users seeded successfully");
