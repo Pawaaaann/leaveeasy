@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { userRoleEnum } from "@shared/schema";
+import { userRoles } from "@shared/schema";
 import { Eye, EyeOff } from "lucide-react";
 import { signInWithPopup, GoogleAuthProvider, signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -52,7 +52,7 @@ export default function Login() {
         id: firebaseUser.uid,
         username: firebaseUser.email?.split('@')[0] || firebaseUser.displayName || 'user',
         email: firebaseUser.email || '',
-        role: formData.role as (typeof userRoleEnum.enumValues)[number],
+        role: formData.role as (typeof userRoles)[number],
         firstName: firebaseUser.displayName?.split(' ')[0] || '',
         lastName: firebaseUser.displayName?.split(' ').slice(1).join(' ') || '',
         department: formData.department || undefined,
@@ -113,7 +113,7 @@ export default function Login() {
                   <SelectValue placeholder="Select your role" />
                 </SelectTrigger>
                 <SelectContent>
-                  {userRoleEnum.enumValues.map((role) => (
+                  {userRoles.map((role) => (
                     <SelectItem key={role} value={role}>
                       {role === "hod" ? "Head of Department" : 
                        role === "mentor" ? "Department Mentor" :

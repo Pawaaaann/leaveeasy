@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { getAuthHeaders } from "@/lib/authUtils";
-import type { LeaveRequest } from "@shared/firebaseSchema";
+import type { LeaveRequest } from "@shared/schema";
 
 interface ApprovalCardProps {
   request: any;
