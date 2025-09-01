@@ -1,17 +1,22 @@
-import { initializeApp } from "firebase/app";
-import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
+import admin from "firebase-admin";
 
-const firebaseConfig = {
-  apiKey: process.env.VITE_FIREBASE_API_KEY,
-  authDomain: `${process.env.VITE_FIREBASE_PROJECT_ID}.firebaseapp.com`,
-  projectId: process.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: `${process.env.VITE_FIREBASE_PROJECT_ID}.appspot.com`,
-  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.VITE_FIREBASE_APP_ID,
-};
+// Initialize Firebase Admin SDK for server-side operations
+// This approach works better for server-side database operations
+if (!admin.apps.length) {
+  try {
+    // Try to initialize with service account (production)
+    admin.initializeApp({
+      projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+      // For development, we'll rely on the environment being configured
+    });
+  } catch (error) {
+    console.log("Using development Firebase configuration");
+    // Fallback for development environment
+    admin.initializeApp({
+      projectId: process.env.VITE_FIREBASE_PROJECT_ID,
+    });
+  }
+}
 
-// Initialize Firebase app for server use
-const app = initializeApp(firebaseConfig, "admin");
-
-// Get Firestore instance  
-export const adminDb = getFirestore(app);
+// Get Firestore instance from admin SDK
+export const adminDb = admin.firestore();
