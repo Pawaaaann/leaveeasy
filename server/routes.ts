@@ -44,7 +44,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Invalid credentials" });
       }
       
-      const user = await storage.getUserByUsername(username);
+      let user = await storage.getUserByUsername(username);
+      
+      // If user doesn't exist, create them (for development)
+      if (!user) {
+        const sampleUserData = {
+          "student1": { username: "student1", email: "student1@college.edu", role: "student", firstName: "John", lastName: "Doe", department: "Computer Science", studentId: "CS001", parentId: "parent1" },
+          "mentor1": { username: "mentor1", email: "mentor1@college.edu", role: "mentor", firstName: "Dr. Jane", lastName: "Smith", department: "Computer Science" },
+          "parent1": { username: "parent1", email: "parent1@email.com", role: "parent", firstName: "Robert", lastName: "Doe", phone: "+1234567890" },
+          "hod1": { username: "hod1", email: "hod1@college.edu", role: "hod", firstName: "Dr. Michael", lastName: "Johnson", department: "Computer Science" },
+          "principal1": { username: "principal1", email: "principal@college.edu", role: "principal", firstName: "Dr. Sarah", lastName: "Wilson" },
+          "warden1": { username: "warden1", email: "warden1@college.edu", role: "warden", firstName: "Mr. David", lastName: "Brown" },
+          "security1": { username: "security1", email: "security1@college.edu", role: "security", firstName: "Officer", lastName: "Garcia" },
+        };
+        
+        const userData = sampleUserData[username as keyof typeof sampleUserData];
+        if (userData) {
+          try {
+            user = await storage.createUser(userData as any);
+            console.log(`Created user on login: ${username}`);
+          } catch (createError) {
+            console.error(`Failed to create user ${username}:`, createError);
+            return res.status(500).json({ message: "Unable to create user. Please check Firebase permissions." });
+          }
+        }
+      }
+      
       if (!user || user.role !== role) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
