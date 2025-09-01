@@ -7,14 +7,38 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+function getAuthHeaders(): Record<string, string> {
+  const userProfile = localStorage.getItem("userProfile");
+  if (userProfile) {
+    try {
+      const user = JSON.parse(userProfile);
+      if (user.id && user.role) {
+        return {
+          "x-user-id": user.id,
+          "x-user-role": user.role,
+        };
+      }
+    } catch (error) {
+      console.error("Failed to parse user profile for auth headers:", error);
+    }
+  }
+  return {};
+}
+
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  const authHeaders = getAuthHeaders();
+  const headers = {
+    ...(data ? { "Content-Type": "application/json" } : {}),
+    ...authHeaders,
+  };
+
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
@@ -29,7 +53,9 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
+    const authHeaders = getAuthHeaders();
     const res = await fetch(queryKey.join("/") as string, {
+      headers: authHeaders,
       credentials: "include",
     });
 

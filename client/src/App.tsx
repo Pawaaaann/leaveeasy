@@ -15,6 +15,7 @@ import NotFound from "@/pages/not-found";
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -26,18 +27,26 @@ function Router() {
     );
   }
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !user) {
     return <Login />;
   }
 
+  // Render based on user role
+  if (user.role === "student") {
+    return <StudentDashboard />;
+  }
+  
+  if (["mentor", "hod", "principal", "warden", "parent"].includes(user.role)) {
+    return <ApprovalDashboard />;
+  }
+  
+  if (user.role === "security") {
+    return <QRScanner />;
+  }
+
+  // Fallback for unknown roles
   return (
     <Switch>
-      <Route path="/">
-        {user?.role === "student" && <StudentDashboard />}
-        {["mentor", "hod", "principal", "warden"].includes(user?.role || "") && <ApprovalDashboard />}
-        {user?.role === "security" && <QRScanner />}
-        {user?.role === "parent" && <ApprovalDashboard />}
-      </Route>
       <Route path="/qr/:requestId" component={QRCodePage} />
       <Route path="/workflow/:requestId" component={WorkflowTracker} />
       <Route component={NotFound} />
