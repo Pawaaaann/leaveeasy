@@ -12,10 +12,11 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { apiRequest } from "@/lib/queryClient";
 import { getAuthHeaders } from "@/lib/authUtils";
+import { leaveTypes, studentTypes } from "@shared/firebaseSchema";
 
 const formSchema = z.object({
-  leaveType: z.enum(["medical", "personal", "family_emergency", "academic"]),
-  studentType: z.enum(["day_scholar", "hostel"]),
+  leaveType: z.enum(leaveTypes),
+  studentType: z.enum(studentTypes),
   fromDate: z.string().min(1, "From date is required"),
   toDate: z.string().min(1, "To date is required"),
   reason: z.string().min(10, "Reason must be at least 10 characters"),

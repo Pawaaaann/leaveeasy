@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
-import type { User } from "@shared/schema";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import type { User } from "@shared/firebaseSchema";
 
 interface AuthState {
   user: User | null;
@@ -15,36 +17,49 @@ export function useAuth() {
   });
 
   useEffect(() => {
-    // Check for stored auth data
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        setAuthState({
-          user,
-          isLoading: false,
-          isAuthenticated: true,
-        });
-      } catch (error) {
-        console.error("Failed to parse stored user:", error);
-        localStorage.removeItem("user");
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        // Get user role and details from Firestore
+        const storedUser = localStorage.getItem("userProfile");
+        if (storedUser) {
+          try {
+            const userProfile = JSON.parse(storedUser);
+            setAuthState({
+              user: userProfile,
+              isLoading: false,
+              isAuthenticated: true,
+            });
+          } catch (error) {
+            console.error("Failed to parse stored user profile:", error);
+            localStorage.removeItem("userProfile");
+            setAuthState({
+              user: null,
+              isLoading: false,
+              isAuthenticated: false,
+            });
+          }
+        } else {
+          setAuthState({
+            user: null,
+            isLoading: false,
+            isAuthenticated: false,
+          });
+        }
+      } else {
+        localStorage.removeItem("userProfile");
         setAuthState({
           user: null,
           isLoading: false,
           isAuthenticated: false,
         });
       }
-    } else {
-      setAuthState({
-        user: null,
-        isLoading: false,
-        isAuthenticated: false,
-      });
-    }
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const login = (user: User) => {
-    localStorage.setItem("user", JSON.stringify(user));
+    localStorage.setItem("userProfile", JSON.stringify(user));
     setAuthState({
       user,
       isLoading: false,
@@ -52,13 +67,18 @@ export function useAuth() {
     });
   };
 
-  const logout = () => {
-    localStorage.removeItem("user");
-    setAuthState({
-      user: null,
-      isLoading: false,
-      isAuthenticated: false,
-    });
+  const logout = async () => {
+    try {
+      await signOut(auth);
+      localStorage.removeItem("userProfile");
+      setAuthState({
+        user: null,
+        isLoading: false,
+        isAuthenticated: false,
+      });
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
   };
 
   return {

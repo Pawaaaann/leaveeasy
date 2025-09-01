@@ -4,12 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle, Clock, ArrowLeft } from "lucide-react";
 import WorkflowSteps from "@/components/WorkflowSteps";
+import type { LeaveRequest } from "@shared/firebaseSchema";
 
 export default function WorkflowTracker() {
   const { requestId } = useParams();
   const [, navigate] = useLocation();
 
-  const { data: request, isLoading } = useQuery({
+  const { data: request, isLoading } = useQuery<LeaveRequest & { approvals?: any[] }>({
     queryKey: ["/api/leave-requests", requestId],
     enabled: !!requestId,
   });

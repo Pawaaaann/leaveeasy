@@ -1,9 +1,10 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage } from "./firebaseStorage";
 import { QrCodeService } from "./services/qrCodeService";
 import { NotificationService } from "./services/notificationService";
-import { insertLeaveRequestSchema, insertUserSchema } from "@shared/schema";
+import { insertLeaveRequestSchema, insertUserSchema } from "@shared/firebaseSchema";
+import { seedSampleUsers, devCredentials } from "./seedData";
 import { z } from "zod";
 
 const authMiddleware = (req: any, res: any, next: any) => {
@@ -20,13 +21,22 @@ const authMiddleware = (req: any, res: any, next: any) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth routes
+  // Seed sample users on startup
+  await seedSampleUsers();
+
+  // Auth routes (simplified for Firebase integration)
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { username, password, role } = req.body;
       
+      // Check dev credentials
+      const credentials = devCredentials[username as keyof typeof devCredentials];
+      if (!credentials || credentials.password !== password || credentials.role !== role) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+      
       const user = await storage.getUserByUsername(username);
-      if (!user || user.password !== password || user.role !== role) {
+      if (!user || user.role !== role) {
         return res.status(401).json({ message: "Invalid credentials" });
       }
       
@@ -39,6 +49,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           lastName: user.lastName,
           department: user.department,
           studentId: user.studentId,
+          parentId: user.parentId,
         },
       });
     } catch (error) {

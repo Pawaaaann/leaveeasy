@@ -4,13 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle, Download, Share, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import type { QrCode } from "@shared/firebaseSchema";
 
 export default function QRCodePage() {
   const { requestId } = useParams();
   const [, navigate] = useLocation();
   const { toast } = useToast();
 
-  const { data: qrData, isLoading } = useQuery({
+  const { data: qrData, isLoading } = useQuery<QrCode & { request: any }>({
     queryKey: ["/api/qr-codes", requestId],
     enabled: !!requestId,
   });

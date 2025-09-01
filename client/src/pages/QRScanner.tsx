@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { getAuthHeaders } from "@/lib/authUtils";
+import type { LeaveRequest } from "@shared/firebaseSchema";
 
 export default function QRScanner() {
   const [qrData, setQrData] = useState("");

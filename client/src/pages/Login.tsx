@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { userRoles } from "@shared/firebaseSchema";
 
 export default function Login() {
   const [formData, setFormData] = useState({
@@ -78,13 +79,14 @@ export default function Login() {
                   <SelectValue placeholder="Select your role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="student">Student</SelectItem>
-                  <SelectItem value="mentor">Department Mentor</SelectItem>
-                  <SelectItem value="parent">Parent</SelectItem>
-                  <SelectItem value="hod">Head of Department</SelectItem>
-                  <SelectItem value="principal">Principal</SelectItem>
-                  <SelectItem value="warden">Hostel Warden</SelectItem>
-                  <SelectItem value="security">Security</SelectItem>
+                  {userRoles.map((role) => (
+                    <SelectItem key={role} value={role}>
+                      {role === "hod" ? "Head of Department" : 
+                       role === "mentor" ? "Department Mentor" :
+                       role === "warden" ? "Hostel Warden" :
+                       role.charAt(0).toUpperCase() + role.slice(1)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
