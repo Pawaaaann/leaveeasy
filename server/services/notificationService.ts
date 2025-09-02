@@ -1,5 +1,6 @@
 import { storage } from "../storage";
 import type { InsertNotification } from "@shared/schema";
+import twilio from "twilio";
 
 export class NotificationService {
   static async notifyParent(
@@ -38,9 +39,31 @@ export class NotificationService {
     };
 
     await storage.createNotification(notification);
-    // SMS Service Integration Note: In production, integrate with SMS API like Twilio here
-    // For now, this is simulated - the message would be sent to the parent's phone
-    console.log(`SMS sent to ${phoneNumber}: ${message}`);
+    
+    // Send actual SMS using Twilio
+    try {
+      const accountSid = process.env.TWILIO_ACCOUNT_SID;
+      const authToken = process.env.TWILIO_AUTH_TOKEN;
+      const fromPhone = process.env.TWILIO_PHONE_NUMBER;
+      
+      if (accountSid && authToken && fromPhone) {
+        const client = twilio(accountSid, authToken);
+        
+        await client.messages.create({
+          body: message,
+          from: fromPhone,
+          to: phoneNumber
+        });
+        
+        console.log(`SMS successfully sent to ${phoneNumber}: ${message}`);
+      } else {
+        console.log(`SMS service not configured. Would send to ${phoneNumber}: ${message}`);
+      }
+    } catch (error) {
+      console.error(`Failed to send SMS to ${phoneNumber}:`, error);
+      // Still log the message even if SMS fails
+      console.log(`SMS fallback log for ${phoneNumber}: ${message}`);
+    }
   }
 
   static async notifyApprover(

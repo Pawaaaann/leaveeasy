@@ -27,13 +27,27 @@ export default function ApprovalDashboard() {
     enabled: selectedView === "approved",
   });
 
+  const { data: approvedTodayRequests = [] } = useQuery<LeaveRequest[]>({
+    queryKey: ["/api/leave-requests/approved-today"],
+    enabled: selectedView === "approved-today",
+  });
+
+  const { data: monthTotalRequests = [] } = useQuery<LeaveRequest[]>({
+    queryKey: ["/api/leave-requests/month-total"],
+    enabled: selectedView === "month-total",
+  });
+
+  const { data: overdueRequests = [] } = useQuery<LeaveRequest[]>({
+    queryKey: ["/api/leave-requests/overdue"],
+    enabled: selectedView === "overdue",
+  });
+
   const getRoleTitle = (role: string) => {
     const titles = {
       mentor: "Department Mentor Portal",
       hod: "Head of Department Portal",
       principal: "Principal Portal",
       warden: "Hostel Warden Portal",
-      parent: "Parent Portal",
     };
     return titles[role as keyof typeof titles] || "Approval Dashboard";
   };
@@ -197,6 +211,118 @@ export default function ApprovalDashboard() {
                             <div className="text-right">
                               <span className="inline-block px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
                                 Approved
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {selectedView === "approved-today" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Approved Today</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {approvedTodayRequests.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <CheckCircle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p>No requests approved today</p>
+                        <p className="text-sm">No approvals made today yet</p>
+                      </div>
+                    ) : (
+                      approvedTodayRequests.map((request: any) => (
+                        <div key={request.id} className="border rounded-lg p-4 space-y-2">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h4 className="font-medium">{request.student?.firstName} {request.student?.lastName}</h4>
+                              <p className="text-sm text-muted-foreground">{request.leaveType}</p>
+                              <p className="text-sm text-muted-foreground">From: {new Date(request.fromDate).toLocaleDateString()} - To: {new Date(request.toDate).toLocaleDateString()}</p>
+                              <p className="text-sm">{request.reason}</p>
+                            </div>
+                            <div className="text-right">
+                              <span className="inline-block px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">
+                                Approved Today
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {selectedView === "month-total" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Total This Month</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {monthTotalRequests.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p>No requests this month</p>
+                        <p className="text-sm">No requests processed this month</p>
+                      </div>
+                    ) : (
+                      monthTotalRequests.map((request: any) => (
+                        <div key={request.id} className="border rounded-lg p-4 space-y-2">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h4 className="font-medium">{request.student?.firstName} {request.student?.lastName}</h4>
+                              <p className="text-sm text-muted-foreground">{request.leaveType}</p>
+                              <p className="text-sm text-muted-foreground">From: {new Date(request.fromDate).toLocaleDateString()} - To: {new Date(request.toDate).toLocaleDateString()}</p>
+                              <p className="text-sm">{request.reason}</p>
+                            </div>
+                            <div className="text-right">
+                              <span className="inline-block px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
+                                {request.status === "approved" ? "Approved" : "Processed"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {selectedView === "overdue" && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Overdue Returns</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {overdueRequests.length === 0 ? (
+                      <div className="text-center py-8 text-muted-foreground">
+                        <AlertTriangle className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                        <p>No overdue returns</p>
+                        <p className="text-sm">All students have returned on time</p>
+                      </div>
+                    ) : (
+                      overdueRequests.map((request: any) => (
+                        <div key={request.id} className="border rounded-lg p-4 space-y-2 border-red-200 bg-red-50">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h4 className="font-medium text-red-800">{request.student?.firstName} {request.student?.lastName}</h4>
+                              <p className="text-sm text-red-600">{request.leaveType}</p>
+                              <p className="text-sm text-red-600">Should have returned: {new Date(request.toDate).toLocaleDateString()}</p>
+                              <p className="text-sm text-red-700">Days overdue: {Math.ceil((Date.now() - new Date(request.toDate).getTime()) / (1000 * 60 * 60 * 24))}</p>
+                              <p className="text-sm">{request.reason}</p>
+                            </div>
+                            <div className="text-right">
+                              <span className="inline-block px-2 py-1 text-xs bg-red-200 text-red-800 rounded-full">
+                                Overdue
                               </span>
                             </div>
                           </div>

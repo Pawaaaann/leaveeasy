@@ -37,6 +37,7 @@ export interface IStorage {
   getLeaveRequest(id: string): Promise<LeaveRequest | undefined>;
   getLeaveRequestsByStudent(studentId: string): Promise<LeaveRequest[]>;
   getPendingRequestsByApprover(approverId: string, role: string): Promise<LeaveRequest[]>;
+  getApprovedRequestsByApprover(approverId: string, role: string): Promise<LeaveRequest[]>;
   updateLeaveRequestStatus(id: string, status: string, currentStep: number): Promise<void>;
   getOverdueReturns(): Promise<LeaveRequest[]>;
   
@@ -631,6 +632,29 @@ class MemoryStorage implements IStorage {
     return Array.from(this.approvals.values())
       .filter(approval => approval.approverId === approverId && approval.approverRole === role)
       .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+  }
+
+  async getApprovedRequestsByApprover(approverId: string, role: string): Promise<LeaveRequest[]> {
+    // Get all approvals by this approver that were approved
+    const approvals = await this.getApprovalsByApprover(approverId, role);
+    const approvedApprovals = approvals.filter(approval => approval.status === "approved");
+    
+    // Get unique leave request IDs
+    const requestIds = Array.from(new Set(approvedApprovals.map(approval => approval.leaveRequestId)));
+    
+    // Fetch the actual leave requests
+    const approvedRequests: LeaveRequest[] = [];
+    for (const requestId of requestIds) {
+      const request = await this.getLeaveRequest(requestId);
+      if (request) {
+        approvedRequests.push(request);
+      }
+    }
+    
+    // Sort by creation date (newest first)
+    return approvedRequests.sort((a, b) => 
+      (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
+    );
   }
 
   async updateApprovalStatus(id: string, status: string, comments?: string): Promise<void> {
