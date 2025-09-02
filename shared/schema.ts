@@ -60,7 +60,7 @@ export const approvalSchema = z.object({
   leaveRequestId: z.string(),
   approverId: z.string(),
   approverRole: z.enum(userRoles),
-  status: z.enum(approvalStatuses).default("pending"),
+  status: z.enum(approvalStatuses),
   comments: z.string().optional(),
   approvedAt: z.date().optional(),
   createdAt: z.date().optional(),

@@ -300,6 +300,7 @@ export class FirebaseStorage implements IStorage {
     try {
       const approvalsRef = collection(adminDb, COLLECTIONS.APPROVALS);
       const now = new Date();
+      
       const approvalWithTimestamps = {
         ...approvalData,
         createdAt: now,
@@ -614,7 +615,6 @@ class MemoryStorage implements IStorage {
     const approval: Approval = {
       id,
       ...approvalData,
-      status: "pending" as any,
       createdAt: now,
     };
     this.approvals.set(id, approval);

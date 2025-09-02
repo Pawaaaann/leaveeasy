@@ -408,6 +408,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Get all approvals for this approver to calculate real stats
         const allApprovals = await storage.getApprovalsByApprover(req.userId!, req.userRole!);
+        
         const approvedToday = allApprovals.filter((a: any) => 
           a.status === "approved" && 
           a.createdAt && a.createdAt >= todayStart
