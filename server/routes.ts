@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { storage, initializeSampleData } from "./storage";
 import { QrCodeService } from "./services/qrCodeService";
 import { NotificationService } from "./services/notificationService";
-import { insertLeaveRequestSchema, insertUserSchema } from "@shared/schema";
+import { insertLeaveRequestSchema, insertUserSchema, type LeaveRequest } from "@shared/schema";
 import { z } from "zod";
 
 declare global {
@@ -243,6 +243,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Request rejected" });
     } catch (error) {
       console.error("Reject request error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get approved requests for an approver
+  app.get("/api/leave-requests/approved", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const approvedRequests = await storage.getApprovedRequestsByApprover(req.userId!, req.userRole!);
+      
+      // Get additional details for each request
+      const requestsWithDetails = await Promise.all(
+        approvedRequests.map(async (request: LeaveRequest) => {
+          const student = await storage.getUser(request.studentId);
+          const approvals = await storage.getApprovalsByRequest(request.id);
+          
+          return {
+            ...request,
+            student,
+            approvals,
+          };
+        })
+      );
+      
+      res.json(requestsWithDetails);
+    } catch (error) {
+      console.error("Get approved requests error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

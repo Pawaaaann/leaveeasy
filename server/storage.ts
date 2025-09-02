@@ -352,6 +352,34 @@ export class FirebaseStorage implements IStorage {
     }
   }
 
+  async getApprovedRequestsByApprover(approverId: string, role: string): Promise<LeaveRequest[]> {
+    try {
+      // Get all approvals by this approver that were approved
+      const approvals = await this.getApprovalsByApprover(approverId, role);
+      const approvedApprovals = approvals.filter(approval => approval.status === "approved");
+      
+      // Get unique leave request IDs
+      const requestIds = Array.from(new Set(approvedApprovals.map(approval => approval.leaveRequestId)));
+      
+      // Fetch the actual leave requests
+      const approvedRequests: LeaveRequest[] = [];
+      for (const requestId of requestIds) {
+        const request = await this.getLeaveRequest(requestId);
+        if (request) {
+          approvedRequests.push(request);
+        }
+      }
+      
+      // Sort by creation date (newest first)
+      return approvedRequests.sort((a, b) => 
+        (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
+      );
+    } catch (error) {
+      console.error("Error getting approved requests by approver:", error);
+      return [];
+    }
+  }
+
   async updateApprovalStatus(id: string, status: string, comments?: string): Promise<void> {
     try {
       const approvalRef = doc(adminDb, COLLECTIONS.APPROVALS, id);
