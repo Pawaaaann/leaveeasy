@@ -151,6 +151,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get approved requests for an approver
+  app.get("/api/leave-requests/approved", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const approvedRequests = await storage.getApprovedRequestsByApprover(req.userId!, req.userRole!);
+      
+      // Get additional details for each request
+      const requestsWithDetails = await Promise.all(
+        approvedRequests.map(async (request: LeaveRequest) => {
+          const student = await storage.getUser(request.studentId);
+          const approvals = await storage.getApprovalsByRequest(request.id);
+          
+          return {
+            ...request,
+            student,
+            approvals,
+          };
+        })
+      );
+      
+      res.json(requestsWithDetails);
+    } catch (error) {
+      console.error("Get approved requests error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get approved requests for today
+  app.get("/api/leave-requests/approved-today", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      if (!req.userRole || !["mentor", "hod", "principal", "warden"].includes(req.userRole)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      // Get all approvals by this approver from today
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      const allApprovals = await storage.getApprovalsByApprover(req.userId!, req.userRole!);
+      const todayApprovals = allApprovals.filter((a: any) => 
+        a.status === "approved" && 
+        a.createdAt && a.createdAt >= todayStart
+      );
+
+      // Get the leave requests for these approvals
+      const approvedTodayRequests = [];
+      for (const approval of todayApprovals) {
+        const request = await storage.getLeaveRequest(approval.leaveRequestId);
+        if (request) {
+          const student = await storage.getUser(request.studentId);
+          approvedTodayRequests.push({ ...request, student });
+        }
+      }
+
+      res.json(approvedTodayRequests);
+    } catch (error) {
+      console.error("Get approved today requests error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get monthly total requests
+  app.get("/api/leave-requests/month-total", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      if (!req.userRole || !["mentor", "hod", "principal", "warden"].includes(req.userRole)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      // Get all approvals by this approver from this month
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      
+      const allApprovals = await storage.getApprovalsByApprover(req.userId!, req.userRole!);
+      const monthApprovals = allApprovals.filter((a: any) => 
+        a.createdAt && a.createdAt >= monthStart
+      );
+
+      // Get the leave requests for these approvals
+      const monthlyRequests = [];
+      for (const approval of monthApprovals) {
+        const request = await storage.getLeaveRequest(approval.leaveRequestId);
+        if (request) {
+          const student = await storage.getUser(request.studentId);
+          monthlyRequests.push({ ...request, student });
+        }
+      }
+
+      res.json(monthlyRequests);
+    } catch (error) {
+      console.error("Get monthly total requests error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Get overdue return requests
+  app.get("/api/leave-requests/overdue", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      if (!req.userRole || !["mentor", "hod", "principal", "warden"].includes(req.userRole)) {
+        return res.status(403).json({ message: "Unauthorized" });
+      }
+
+      const overdueRequests = await storage.getOverdueReturns();
+      
+      // Add student information to each request
+      const overdueWithStudents = [];
+      for (const request of overdueRequests) {
+        const student = await storage.getUser(request.studentId);
+        overdueWithStudents.push({ ...request, student });
+      }
+
+      res.json(overdueWithStudents);
+    } catch (error) {
+      console.error("Get overdue requests error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get("/api/leave-requests/:id", authMiddleware, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
@@ -246,33 +362,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Internal server error" });
     }
   });
-
-  // Get approved requests for an approver
-  app.get("/api/leave-requests/approved", authMiddleware, async (req: Request, res: Response) => {
-    try {
-      const approvedRequests = await storage.getApprovedRequestsByApprover(req.userId!, req.userRole!);
-      
-      // Get additional details for each request
-      const requestsWithDetails = await Promise.all(
-        approvedRequests.map(async (request: LeaveRequest) => {
-          const student = await storage.getUser(request.studentId);
-          const approvals = await storage.getApprovalsByRequest(request.id);
-          
-          return {
-            ...request,
-            student,
-            approvals,
-          };
-        })
-      );
-      
-      res.json(requestsWithDetails);
-    } catch (error) {
-      console.error("Get approved requests error:", error);
-      res.status(500).json({ message: "Internal server error" });
-    }
-  });
-
 
   // QR code routes
   app.get("/api/qr-codes/:requestId", authMiddleware, async (req: Request, res: Response) => {
