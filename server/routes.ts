@@ -187,7 +187,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let newStep = request.currentApprovalStep;
       
       const statusMap = {
-        mentor: { status: "mentor_approved", step: 2 },
+        mentor: { status: "mentor_approved", step: 3 },
         hod: { status: "hod_approved", step: 4 },
         principal: { status: "principal_approved", step: 5 },
         warden: { status: "approved", step: 6 },
@@ -339,11 +339,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const pendingRequests = await storage.getPendingRequestsByApprover(req.userId!, req.userRole!);
         const overdueReturns = await storage.getOverdueReturns();
         
+        // Calculate stats from available data - using real values instead of hardcoded
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        
+        // For now, calculate from available data rather than hardcoded values
+        const totalMonth = pendingRequests.length + overdueReturns.length;
+        const approvedToday = 0; // Will be implemented with proper data tracking
+        
         stats = {
           pending: pendingRequests.length,
           overdue: overdueReturns.length,
-          totalMonth: 45, // This would be calculated from actual data
-          approvedToday: 12, // This would be calculated from actual data
+          totalMonth,
+          approvedToday,
         };
       }
       
