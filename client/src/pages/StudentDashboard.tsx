@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Calendar, CheckCircle, Clock, Home, Plus, History, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import LeaveRequestForm from "@/components/LeaveRequestForm";
 import StatsCard from "@/components/StatsCard";
 import { Link } from "wouter";
@@ -14,6 +15,7 @@ export default function StudentDashboard() {
   const { user, logout } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const { toast } = useToast();
 
   const { data: stats = {} } = useQuery({
     queryKey: ["/api/dashboard/stats"],
@@ -105,18 +107,29 @@ export default function StudentDashboard() {
                 value={(stats as any)?.pendingRequests || 0}
                 icon={Clock}
                 iconColor="text-yellow-500"
+                onClick={() => {
+                  setShowHistory(true);
+                  toast({ title: "Pending Requests", description: `You have ${(stats as any)?.pendingRequests || 0} requests pending approval` });
+                }}
               />
               <StatsCard
                 title="Approved This Month"
                 value={(stats as any)?.approvedThisMonth || 0}
                 icon={CheckCircle}
                 iconColor="text-green-500"
+                onClick={() => {
+                  setShowHistory(true);
+                  toast({ title: "Approved This Month", description: `${(stats as any)?.approvedThisMonth || 0} requests approved this month` });
+                }}
               />
               <StatsCard
                 title="Days Remaining"
                 value={15}
                 icon={Calendar}
                 iconColor="text-blue-500"
+                onClick={() => {
+                  toast({ title: "Days Remaining", description: "You have 15 days of leave remaining this term" });
+                }}
               />
             </div>
 

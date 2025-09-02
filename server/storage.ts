@@ -302,7 +302,6 @@ export class FirebaseStorage implements IStorage {
       const now = new Date();
       const approvalWithTimestamps = {
         ...approvalData,
-        status: "pending",
         createdAt: now,
       };
       

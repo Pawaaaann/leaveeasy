@@ -6,11 +6,12 @@ interface StatsCardProps {
   value: number | string;
   icon: LucideIcon;
   iconColor?: string;
+  onClick?: () => void;
 }
 
-export default function StatsCard({ title, value, icon: Icon, iconColor = "text-primary" }: StatsCardProps) {
+export default function StatsCard({ title, value, icon: Icon, iconColor = "text-primary", onClick }: StatsCardProps) {
   return (
-    <Card>
+    <Card className={onClick ? "cursor-pointer hover:shadow-lg transition-shadow" : ""} onClick={onClick}>
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div>

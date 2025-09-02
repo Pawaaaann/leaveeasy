@@ -38,7 +38,8 @@ export class NotificationService {
     };
 
     await storage.createNotification(notification);
-    // In a real implementation, integrate with SMS API like Twilio here
+    // SMS Service Integration Note: In production, integrate with SMS API like Twilio here
+    // For now, this is simulated - the message would be sent to the parent's phone
     console.log(`SMS sent to ${phoneNumber}: ${message}`);
   }
 

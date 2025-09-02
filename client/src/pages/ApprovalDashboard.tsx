@@ -1,14 +1,18 @@
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bell, CheckSquare, BarChart3, Clock, CheckCircle, Calendar, AlertTriangle, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
 import ApprovalCard from "@/components/ApprovalCard";
 import StatsCard from "@/components/StatsCard";
 import type { LeaveRequest } from "@shared/schema";
 
 export default function ApprovalDashboard() {
   const { user, logout } = useAuth();
+  const [selectedView, setSelectedView] = useState("pending");
+  const { toast } = useToast();
 
   const { data: stats = {} } = useQuery({
     queryKey: ["/api/dashboard/stats"],
@@ -98,24 +102,40 @@ export default function ApprovalDashboard() {
                 value={(stats as any)?.pending || 0}
                 icon={Clock}
                 iconColor="text-yellow-500"
+                onClick={() => {
+                  setSelectedView("pending");
+                  toast({ title: "Showing Pending Requests", description: "Displaying all requests awaiting approval" });
+                }}
               />
               <StatsCard
                 title="Approved Today"
                 value={(stats as any)?.approvedToday || 0}
                 icon={CheckCircle}
                 iconColor="text-green-500"
+                onClick={() => {
+                  setSelectedView("approved-today");
+                  toast({ title: "Approved Today", description: `${(stats as any)?.approvedToday || 0} requests approved today` });
+                }}
               />
               <StatsCard
                 title="Total This Month"
                 value={(stats as any)?.totalMonth || 0}
                 icon={Calendar}
                 iconColor="text-blue-500"
+                onClick={() => {
+                  setSelectedView("month-total");
+                  toast({ title: "Monthly Total", description: `${(stats as any)?.totalMonth || 0} total approvals this month` });
+                }}
               />
               <StatsCard
                 title="Overdue Returns"
                 value={(stats as any)?.overdue || 0}
                 icon={AlertTriangle}
                 iconColor="text-red-500"
+                onClick={() => {
+                  setSelectedView("overdue");
+                  toast({ title: "Overdue Returns", description: `${(stats as any)?.overdue || 0} students have overdue returns` });
+                }}
               />
             </div>
 
