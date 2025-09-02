@@ -410,4 +410,192 @@ export class FirebaseStorage implements IStorage {
   }
 }
 
-export const storage = new FirebaseStorage();
+// Development memory storage implementation
+class MemoryStorage implements IStorage {
+  private users: Map<string, User> = new Map();
+  private leaveRequests: Map<string, LeaveRequest> = new Map();
+  private approvals: Map<string, Approval> = new Map();
+  private qrCodes: Map<string, QrCode> = new Map();
+  private notifications: Map<string, Notification> = new Map();
+
+  private generateId(): string {
+    return Math.random().toString(36).substr(2, 9);
+  }
+
+  // User operations
+  async getUser(id: string): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const users = Array.from(this.users.values());
+    return users.find(user => user.username === username);
+  }
+
+  async createUser(userData: InsertUser): Promise<User> {
+    const id = this.generateId();
+    const now = new Date();
+    const user: User = {
+      id,
+      ...userData,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.users.set(id, user);
+    return user;
+  }
+
+  async getUsersByRole(role: string): Promise<User[]> {
+    return Array.from(this.users.values()).filter(user => user.role === role);
+  }
+
+  // Leave request operations
+  async createLeaveRequest(requestData: InsertLeaveRequest): Promise<LeaveRequest> {
+    const id = this.generateId();
+    const now = new Date();
+    const request: LeaveRequest = {
+      id,
+      ...requestData,
+      status: "pending" as any,
+      currentApprovalStep: 1,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.leaveRequests.set(id, request);
+    return request;
+  }
+
+  async getLeaveRequest(id: string): Promise<LeaveRequest | undefined> {
+    return this.leaveRequests.get(id);
+  }
+
+  async getLeaveRequestsByStudent(studentId: string): Promise<LeaveRequest[]> {
+    return Array.from(this.leaveRequests.values())
+      .filter(request => request.studentId === studentId)
+      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+  }
+
+  async getPendingRequestsByApprover(approverId: string, role: string): Promise<LeaveRequest[]> {
+    const roleStepMap = {
+      mentor: 1,
+      hod: 3,
+      principal: 4,
+      warden: 5,
+    };
+    
+    const step = roleStepMap[role as keyof typeof roleStepMap];
+    if (!step) return [];
+
+    return Array.from(this.leaveRequests.values())
+      .filter(request => request.currentApprovalStep === step)
+      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+  }
+
+  async updateLeaveRequestStatus(id: string, status: string, currentStep: number): Promise<void> {
+    const request = this.leaveRequests.get(id);
+    if (request) {
+      request.status = status as any;
+      request.currentApprovalStep = currentStep;
+      request.updatedAt = new Date();
+    }
+  }
+
+  async getOverdueReturns(): Promise<LeaveRequest[]> {
+    const today = new Date();
+    return Array.from(this.leaveRequests.values())
+      .filter(request => request.status === "approved" && request.toDate <= today);
+  }
+
+  // Approval operations
+  async createApproval(approvalData: InsertApproval): Promise<Approval> {
+    const id = this.generateId();
+    const now = new Date();
+    const approval: Approval = {
+      id,
+      ...approvalData,
+      status: "pending" as any,
+      createdAt: now,
+    };
+    this.approvals.set(id, approval);
+    return approval;
+  }
+
+  async getApprovalsByRequest(requestId: string): Promise<Approval[]> {
+    return Array.from(this.approvals.values())
+      .filter(approval => approval.leaveRequestId === requestId)
+      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+  }
+
+  async updateApprovalStatus(id: string, status: string, comments?: string): Promise<void> {
+    const approval = this.approvals.get(id);
+    if (approval) {
+      approval.status = status as any;
+      approval.comments = comments;
+      if (status === "approved") {
+        approval.approvedAt = new Date();
+      }
+    }
+  }
+
+  // QR code operations
+  async createQrCode(qrCodeData: InsertQrCode): Promise<QrCode> {
+    const id = this.generateId();
+    const now = new Date();
+    const qrCode: QrCode = {
+      id,
+      ...qrCodeData,
+      isUsed: false,
+      createdAt: now,
+    };
+    this.qrCodes.set(id, qrCode);
+    return qrCode;
+  }
+
+  async getQrCodeByData(qrData: string): Promise<QrCode | undefined> {
+    const qrCodes = Array.from(this.qrCodes.values());
+    return qrCodes.find(qrCode => qrCode.qrData === qrData);
+  }
+
+  async markQrCodeAsUsed(id: string, scannedBy: string): Promise<void> {
+    const qrCode = this.qrCodes.get(id);
+    if (qrCode) {
+      qrCode.isUsed = true;
+      qrCode.scannedAt = new Date();
+      qrCode.scannedBy = scannedBy;
+    }
+  }
+
+  // Notification operations
+  async createNotification(notificationData: InsertNotification): Promise<Notification> {
+    const id = this.generateId();
+    const now = new Date();
+    const notification: Notification = {
+      id,
+      ...notificationData,
+      sent: false,
+      createdAt: now,
+    };
+    this.notifications.set(id, notification);
+    return notification;
+  }
+
+  async getPendingNotifications(): Promise<Notification[]> {
+    return Array.from(this.notifications.values()).filter(notification => !notification.sent);
+  }
+
+  async markNotificationAsSent(id: string): Promise<void> {
+    const notification = this.notifications.get(id);
+    if (notification) {
+      notification.sent = true;
+      notification.sentAt = new Date();
+    }
+  }
+
+  // Helper method
+  private convertTimestamps(data: any): any {
+    return data; // Memory storage already uses Date objects
+  }
+}
+
+// Use memory storage for development to avoid Firebase permission issues
+export const storage = new MemoryStorage();
