@@ -43,6 +43,7 @@ export interface IStorage {
   // Approval operations
   createApproval(approval: InsertApproval): Promise<Approval>;
   getApprovalsByRequest(requestId: string): Promise<Approval[]>;
+  getApprovalsByApprover(approverId: string, role: string): Promise<Approval[]>;
   updateApprovalStatus(id: string, status: string, comments?: string): Promise<void>;
   
   // QR code operations
@@ -205,11 +206,50 @@ export class FirebaseStorage implements IStorage {
       if (!step) return [];
 
       const requestsRef = collection(adminDb, COLLECTIONS.LEAVE_REQUESTS);
-      const q = query(
+      let q = query(
         requestsRef,
         where("currentApprovalStep", "==", step),
         orderBy("createdAt", "desc")
       );
+      
+      // For HODs, filter by department
+      if (role === "hod") {
+        const approver = await this.getUser(approverId);
+        if (approver && approver.department) {
+          // Get students from the same department
+          const studentsRef = collection(adminDb, COLLECTIONS.USERS);
+          const studentsQuery = query(
+            studentsRef,
+            where("role", "==", "student"),
+            where("department", "==", approver.department)
+          );
+          const studentsSnapshot = await getDocs(studentsQuery);
+          const studentIds = studentsSnapshot.docs.map(doc => doc.id);
+          
+          if (studentIds.length === 0) return [];
+          
+          // Filter requests by students in this department
+          const departmentRequests: LeaveRequest[] = [];
+          for (const studentId of studentIds) {
+            const studentRequestsQuery = query(
+              requestsRef,
+              where("currentApprovalStep", "==", step),
+              where("studentId", "==", studentId),
+              orderBy("createdAt", "desc")
+            );
+            const studentRequestsSnapshot = await getDocs(studentRequestsQuery);
+            departmentRequests.push(
+              ...studentRequestsSnapshot.docs.map(docSnap => 
+                this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as LeaveRequest
+              )
+            );
+          }
+          return departmentRequests.sort((a, b) => 
+            (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
+          );
+        }
+      }
+      
       const querySnapshot = await getDocs(q);
       
       return querySnapshot.docs.map(docSnap => 
@@ -289,6 +329,26 @@ export class FirebaseStorage implements IStorage {
       );
     } catch (error) {
       console.error("Error getting approvals by request:", error);
+      return [];
+    }
+  }
+
+  async getApprovalsByApprover(approverId: string, role: string): Promise<Approval[]> {
+    try {
+      const approvalsRef = collection(adminDb, COLLECTIONS.APPROVALS);
+      const q = query(
+        approvalsRef,
+        where("approverId", "==", approverId),
+        where("approverRole", "==", role),
+        orderBy("createdAt", "desc")
+      );
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(docSnap => 
+        this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as Approval
+      );
+    } catch (error) {
+      console.error("Error getting approvals by approver:", error);
       return [];
     }
   }
@@ -486,9 +546,23 @@ class MemoryStorage implements IStorage {
     const step = roleStepMap[role as keyof typeof roleStepMap];
     if (!step) return [];
 
-    return Array.from(this.leaveRequests.values())
-      .filter(request => request.currentApprovalStep === step)
-      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+    let requests = Array.from(this.leaveRequests.values())
+      .filter(request => request.currentApprovalStep === step);
+    
+    // For HODs, filter by department
+    if (role === "hod") {
+      const approver = await this.getUser(approverId);
+      if (approver && approver.department) {
+        // Get students from the same department
+        const departmentStudents = Array.from(this.users.values())
+          .filter(user => user.role === "student" && user.department === approver.department)
+          .map(user => user.id);
+        
+        requests = requests.filter(request => departmentStudents.includes(request.studentId));
+      }
+    }
+    
+    return requests.sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
   }
 
   async updateLeaveRequestStatus(id: string, status: string, currentStep: number): Promise<void> {
@@ -523,6 +597,12 @@ class MemoryStorage implements IStorage {
   async getApprovalsByRequest(requestId: string): Promise<Approval[]> {
     return Array.from(this.approvals.values())
       .filter(approval => approval.leaveRequestId === requestId)
+      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+  }
+
+  async getApprovalsByApprover(approverId: string, role: string): Promise<Approval[]> {
+    return Array.from(this.approvals.values())
+      .filter(approval => approval.approverId === approverId && approval.approverRole === role)
       .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
   }
 

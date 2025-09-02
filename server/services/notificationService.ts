@@ -22,6 +22,26 @@ export class NotificationService {
     console.log(`SMS notification created for parent ${parentId}: ${message}`);
   }
 
+  static async notifyParentBySMS(
+    phoneNumber: string,
+    leaveRequestId: string,
+    studentName: string,
+    leaveDetails: string
+  ): Promise<void> {
+    const message = `Your child ${studentName} has requested leave: ${leaveDetails}. Please confirm by replying YES or NO.`;
+    
+    const notification: InsertNotification = {
+      userId: phoneNumber, // Using phone number as identifier for SMS
+      leaveRequestId,
+      type: "sms",
+      message,
+    };
+
+    await storage.createNotification(notification);
+    // In a real implementation, integrate with SMS API like Twilio here
+    console.log(`SMS sent to ${phoneNumber}: ${message}`);
+  }
+
   static async notifyApprover(
     approverId: string,
     leaveRequestId: string,

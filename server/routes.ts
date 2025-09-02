@@ -87,6 +87,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
           `${student.firstName} ${student.lastName}`,
           leaveRequest.leaveType
         );
+        
+        // Notify parent via SMS
+        if (leaveRequest.parentPhone) {
+          await NotificationService.notifyParentBySMS(
+            leaveRequest.parentPhone,
+            leaveRequest.id,
+            `${student.firstName} ${student.lastName}`,
+            `${leaveRequest.leaveType} leave from ${new Date(leaveRequest.fromDate).toLocaleDateString()} to ${new Date(leaveRequest.toDate).toLocaleDateString()}`
+          );
+        }
       }
       
       res.json(leaveRequest);
@@ -277,12 +287,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         qrData = await QrCodeService.createQrCode(requestId);
       } catch (error) {
-        // QR code might already exist, try to fetch it
-        const existingQr = await storage.getQrCodeByData("");
-        if (!existingQr) {
-          throw error;
-        }
-        qrData = existingQr.qrData;
+        console.error("QR code creation failed:", error);
+        return res.status(500).json({ message: "Failed to generate QR code" });
       }
       
       res.json({ qrData, request });
@@ -339,13 +345,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const pendingRequests = await storage.getPendingRequestsByApprover(req.userId!, req.userRole!);
         const overdueReturns = await storage.getOverdueReturns();
         
-        // Calculate stats from available data - using real values instead of hardcoded
+        // Calculate real stats from actual data
         const now = new Date();
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
         
-        // For now, calculate from available data rather than hardcoded values
-        const totalMonth = pendingRequests.length + overdueReturns.length;
-        const approvedToday = 0; // Will be implemented with proper data tracking
+        // Get all approvals for this approver to calculate real stats
+        const allApprovals = await storage.getApprovalsByApprover(req.userId!, req.userRole!);
+        const approvedToday = allApprovals.filter((a: any) => 
+          a.status === "approved" && 
+          a.createdAt && a.createdAt >= todayStart
+        ).length;
+        
+        const totalMonth = allApprovals.filter((a: any) => 
+          a.createdAt && a.createdAt >= monthStart
+        ).length;
         
         stats = {
           pending: pendingRequests.length,

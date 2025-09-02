@@ -13,6 +13,7 @@ import type { LeaveRequest } from "@shared/schema";
 export default function StudentDashboard() {
   const { user, logout } = useAuth();
   const [showForm, setShowForm] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   const { data: stats = {} } = useQuery({
     queryKey: ["/api/dashboard/stats"],
@@ -85,6 +86,7 @@ export default function StudentDashboard() {
             <Button
               variant="ghost"
               className="w-full justify-start"
+              onClick={() => setShowHistory(!showHistory)}
               data-testid="nav-history"
             >
               <History className="h-4 w-4 mr-3" />
@@ -138,7 +140,7 @@ export default function StudentDashboard() {
             {/* Recent Requests */}
             <Card>
               <CardHeader>
-                <CardTitle>Recent Requests</CardTitle>
+                <CardTitle>{showHistory ? "Leave History" : "Recent Requests"}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">

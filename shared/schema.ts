@@ -47,6 +47,7 @@ export const leaveRequestSchema = z.object({
   fromDate: z.date(),
   toDate: z.date(),
   reason: z.string(),
+  parentPhone: z.string(),
   status: z.enum(requestStatuses).default("pending"),
   currentApprovalStep: z.number().default(1),
   supportingDocuments: z.array(z.string()).optional(),

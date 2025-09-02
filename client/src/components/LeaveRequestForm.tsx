@@ -20,6 +20,7 @@ const formSchema = z.object({
   fromDate: z.string().min(1, "From date is required"),
   toDate: z.string().min(1, "To date is required"),
   reason: z.string().min(10, "Reason must be at least 10 characters"),
+  parentPhone: z.string().min(10, "Parent phone number is required (minimum 10 digits)"),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -42,6 +43,7 @@ export default function LeaveRequestForm({ onSuccess, onCancel }: LeaveRequestFo
       fromDate: "",
       toDate: "",
       reason: "",
+      parentPhone: "",
     },
   });
 
@@ -190,6 +192,25 @@ export default function LeaveRequestForm({ onSuccess, onCancel }: LeaveRequestFo
             )}
           />
         </div>
+
+        <FormField
+          control={form.control}
+          name="parentPhone"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Parent Phone Number</FormLabel>
+              <FormControl>
+                <Input 
+                  type="tel"
+                  placeholder="Enter parent's phone number"
+                  {...field}
+                  data-testid="input-parent-phone"
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <FormField
           control={form.control}
