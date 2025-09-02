@@ -19,6 +19,7 @@ import {
   getDocs, 
   addDoc, 
   updateDoc, 
+  deleteDoc,
   query, 
   where, 
   orderBy, 
@@ -56,6 +57,9 @@ export interface IStorage {
   createNotification(notification: InsertNotification): Promise<Notification>;
   getPendingNotifications(): Promise<Notification[]>;
   markNotificationAsSent(id: string): Promise<void>;
+  
+  // Data management operations
+  clearAllData(): Promise<void>;
 }
 
 export class FirebaseStorage implements IStorage {
@@ -497,6 +501,37 @@ export class FirebaseStorage implements IStorage {
       throw error;
     }
   }
+
+  async clearAllData(): Promise<void> {
+    try {
+      console.log("Starting to clear all Firebase data...");
+      
+      // Clear all collections
+      const collections = [
+        COLLECTIONS.LEAVE_REQUESTS,
+        COLLECTIONS.APPROVALS,
+        COLLECTIONS.NOTIFICATIONS,
+        COLLECTIONS.QR_CODES
+      ];
+
+      for (const collectionName of collections) {
+        const collectionRef = collection(adminDb, collectionName);
+        const snapshot = await getDocs(collectionRef);
+        
+        const deletePromises = snapshot.docs.map((document) => {
+          return deleteDoc(doc(adminDb, collectionName, document.id));
+        });
+        
+        await Promise.all(deletePromises);
+        console.log(`Cleared ${snapshot.docs.length} documents from ${collectionName}`);
+      }
+      
+      console.log("All Firebase data cleared successfully!");
+    } catch (error) {
+      console.error("Error clearing Firebase data:", error);
+      throw error;
+    }
+  }
 }
 
 // Development memory storage implementation
@@ -720,6 +755,16 @@ class MemoryStorage implements IStorage {
       notification.sent = true;
       notification.sentAt = new Date();
     }
+  }
+
+  async clearAllData(): Promise<void> {
+    console.log("Clearing all memory storage data...");
+    this.users.clear();
+    this.leaveRequests.clear();
+    this.approvals.clear();
+    this.qrCodes.clear();
+    this.notifications.clear();
+    console.log("Memory storage data cleared successfully!");
   }
 
   // Helper method

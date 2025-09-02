@@ -573,6 +573,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Clear all data (for development/testing)
+  app.post("/api/data/clear", async (req, res) => {
+    try {
+      await storage.clearAllData();
+      res.json({ message: "All data cleared successfully" });
+    } catch (error) {
+      console.error("Clear data error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
