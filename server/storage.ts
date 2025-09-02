@@ -12,6 +12,18 @@ import {
   type InsertNotification,
 } from "@shared/schema";
 import { adminDb } from "./firebaseAdmin";
+import { 
+  collection, 
+  doc, 
+  getDoc, 
+  getDocs, 
+  addDoc, 
+  updateDoc, 
+  query, 
+  where, 
+  orderBy, 
+  limit 
+} from "firebase/firestore";
 
 export interface IStorage {
   // User operations
@@ -62,10 +74,10 @@ export class FirebaseStorage implements IStorage {
   // User operations
   async getUser(id: string): Promise<User | undefined> {
     try {
-      const userRef = adminDb.collection(COLLECTIONS.USERS).doc(id);
-      const userSnap = await userRef.get();
+      const userRef = doc(adminDb, COLLECTIONS.USERS, id);
+      const userSnap = await getDoc(userRef);
       
-      if (userSnap.exists) {
+      if (userSnap.exists()) {
         return this.convertTimestamps({ id: userSnap.id, ...userSnap.data() }) as User;
       }
       return undefined;
@@ -77,8 +89,9 @@ export class FirebaseStorage implements IStorage {
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     try {
-      const usersRef = adminDb.collection(COLLECTIONS.USERS);
-      const querySnapshot = await usersRef.where("username", "==", username).limit(1).get();
+      const usersRef = collection(adminDb, COLLECTIONS.USERS);
+      const q = query(usersRef, where("username", "==", username), limit(1));
+      const querySnapshot = await getDocs(q);
       
       if (!querySnapshot.empty) {
         const docSnap = querySnapshot.docs[0];
@@ -93,7 +106,7 @@ export class FirebaseStorage implements IStorage {
 
   async createUser(userData: InsertUser): Promise<User> {
     try {
-      const usersRef = adminDb.collection(COLLECTIONS.USERS);
+      const usersRef = collection(adminDb, COLLECTIONS.USERS);
       const now = new Date();
       const userWithTimestamps = {
         ...userData,
@@ -101,7 +114,7 @@ export class FirebaseStorage implements IStorage {
         updatedAt: now,
       };
       
-      const docRef = await usersRef.add(userWithTimestamps);
+      const docRef = await addDoc(usersRef, userWithTimestamps);
       return { id: docRef.id, ...userWithTimestamps } as User;
     } catch (error) {
       console.error("Error creating user:", error);
@@ -111,8 +124,9 @@ export class FirebaseStorage implements IStorage {
 
   async getUsersByRole(role: string): Promise<User[]> {
     try {
-      const usersRef = adminDb.collection(COLLECTIONS.USERS);
-      const querySnapshot = await usersRef.where("role", "==", role).get();
+      const usersRef = collection(adminDb, COLLECTIONS.USERS);
+      const q = query(usersRef, where("role", "==", role));
+      const querySnapshot = await getDocs(q);
       
       return querySnapshot.docs.map(docSnap => 
         this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as User
@@ -126,7 +140,7 @@ export class FirebaseStorage implements IStorage {
   // Leave request operations
   async createLeaveRequest(requestData: InsertLeaveRequest): Promise<LeaveRequest> {
     try {
-      const requestsRef = adminDb.collection(COLLECTIONS.LEAVE_REQUESTS);
+      const requestsRef = collection(adminDb, COLLECTIONS.LEAVE_REQUESTS);
       const now = new Date();
       const requestWithTimestamps = {
         ...requestData,
@@ -136,7 +150,7 @@ export class FirebaseStorage implements IStorage {
         updatedAt: now,
       };
       
-      const docRef = await requestsRef.add(requestWithTimestamps);
+      const docRef = await addDoc(requestsRef, requestWithTimestamps);
       return { id: docRef.id, ...requestWithTimestamps } as LeaveRequest;
     } catch (error) {
       console.error("Error creating leave request:", error);
@@ -146,10 +160,10 @@ export class FirebaseStorage implements IStorage {
 
   async getLeaveRequest(id: string): Promise<LeaveRequest | undefined> {
     try {
-      const requestRef = adminDb.collection(COLLECTIONS.LEAVE_REQUESTS).doc(id);
-      const requestSnap = await requestRef.get();
+      const requestRef = doc(adminDb, COLLECTIONS.LEAVE_REQUESTS, id);
+      const requestSnap = await getDoc(requestRef);
       
-      if (requestSnap.exists) {
+      if (requestSnap.exists()) {
         return this.convertTimestamps({ id: requestSnap.id, ...requestSnap.data() }) as LeaveRequest;
       }
       return undefined;
@@ -161,11 +175,13 @@ export class FirebaseStorage implements IStorage {
 
   async getLeaveRequestsByStudent(studentId: string): Promise<LeaveRequest[]> {
     try {
-      const requestsRef = adminDb.collection(COLLECTIONS.LEAVE_REQUESTS);
-      const querySnapshot = await requestsRef
-        .where("studentId", "==", studentId)
-        .orderBy("createdAt", "desc")
-        .get();
+      const requestsRef = collection(adminDb, COLLECTIONS.LEAVE_REQUESTS);
+      const q = query(
+        requestsRef, 
+        where("studentId", "==", studentId),
+        orderBy("createdAt", "desc")
+      );
+      const querySnapshot = await getDocs(q);
       
       return querySnapshot.docs.map(docSnap => 
         this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as LeaveRequest
@@ -188,11 +204,13 @@ export class FirebaseStorage implements IStorage {
       const step = roleStepMap[role as keyof typeof roleStepMap];
       if (!step) return [];
 
-      const requestsRef = adminDb.collection(COLLECTIONS.LEAVE_REQUESTS);
-      const querySnapshot = await requestsRef
-        .where("currentApprovalStep", "==", step)
-        .orderBy("createdAt", "desc")
-        .get();
+      const requestsRef = collection(adminDb, COLLECTIONS.LEAVE_REQUESTS);
+      const q = query(
+        requestsRef,
+        where("currentApprovalStep", "==", step),
+        orderBy("createdAt", "desc")
+      );
+      const querySnapshot = await getDocs(q);
       
       return querySnapshot.docs.map(docSnap => 
         this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as LeaveRequest
@@ -205,8 +223,8 @@ export class FirebaseStorage implements IStorage {
 
   async updateLeaveRequestStatus(id: string, status: string, currentStep: number): Promise<void> {
     try {
-      const requestRef = adminDb.collection(COLLECTIONS.LEAVE_REQUESTS).doc(id);
-      await requestRef.update({
+      const requestRef = doc(adminDb, COLLECTIONS.LEAVE_REQUESTS, id);
+      await updateDoc(requestRef, {
         status,
         currentApprovalStep: currentStep,
         updatedAt: new Date(),
@@ -220,11 +238,13 @@ export class FirebaseStorage implements IStorage {
   async getOverdueReturns(): Promise<LeaveRequest[]> {
     try {
       const today = new Date();
-      const requestsRef = adminDb.collection(COLLECTIONS.LEAVE_REQUESTS);
-      const querySnapshot = await requestsRef
-        .where("status", "==", "approved")
-        .where("toDate", "<=", today)
-        .get();
+      const requestsRef = collection(adminDb, COLLECTIONS.LEAVE_REQUESTS);
+      const q = query(
+        requestsRef,
+        where("status", "==", "approved"),
+        where("toDate", "<=", today)
+      );
+      const querySnapshot = await getDocs(q);
       
       return querySnapshot.docs.map(docSnap => 
         this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as LeaveRequest
@@ -238,7 +258,7 @@ export class FirebaseStorage implements IStorage {
   // Approval operations
   async createApproval(approvalData: InsertApproval): Promise<Approval> {
     try {
-      const approvalsRef = adminDb.collection(COLLECTIONS.APPROVALS);
+      const approvalsRef = collection(adminDb, COLLECTIONS.APPROVALS);
       const now = new Date();
       const approvalWithTimestamps = {
         ...approvalData,
@@ -246,7 +266,7 @@ export class FirebaseStorage implements IStorage {
         createdAt: now,
       };
       
-      const docRef = await approvalsRef.add(approvalWithTimestamps);
+      const docRef = await addDoc(approvalsRef, approvalWithTimestamps);
       return { id: docRef.id, ...approvalWithTimestamps } as Approval;
     } catch (error) {
       console.error("Error creating approval:", error);
@@ -256,11 +276,13 @@ export class FirebaseStorage implements IStorage {
 
   async getApprovalsByRequest(requestId: string): Promise<Approval[]> {
     try {
-      const approvalsRef = adminDb.collection(COLLECTIONS.APPROVALS);
-      const querySnapshot = await approvalsRef
-        .where("leaveRequestId", "==", requestId)
-        .orderBy("createdAt", "desc")
-        .get();
+      const approvalsRef = collection(adminDb, COLLECTIONS.APPROVALS);
+      const q = query(
+        approvalsRef,
+        where("leaveRequestId", "==", requestId),
+        orderBy("createdAt", "desc")
+      );
+      const querySnapshot = await getDocs(q);
       
       return querySnapshot.docs.map(docSnap => 
         this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as Approval
@@ -273,7 +295,7 @@ export class FirebaseStorage implements IStorage {
 
   async updateApprovalStatus(id: string, status: string, comments?: string): Promise<void> {
     try {
-      const approvalRef = adminDb.collection(COLLECTIONS.APPROVALS).doc(id);
+      const approvalRef = doc(adminDb, COLLECTIONS.APPROVALS, id);
       const updateData: any = {
         status,
         comments,
@@ -283,7 +305,7 @@ export class FirebaseStorage implements IStorage {
         updateData.approvedAt = new Date();
       }
       
-      await approvalRef.update(updateData);
+      await updateDoc(approvalRef, updateData);
     } catch (error) {
       console.error("Error updating approval status:", error);
       throw error;
@@ -293,7 +315,7 @@ export class FirebaseStorage implements IStorage {
   // QR code operations
   async createQrCode(qrCodeData: InsertQrCode): Promise<QrCode> {
     try {
-      const qrCodesRef = adminDb.collection(COLLECTIONS.QR_CODES);
+      const qrCodesRef = collection(adminDb, COLLECTIONS.QR_CODES);
       const now = new Date();
       const qrCodeWithTimestamps = {
         ...qrCodeData,
@@ -301,7 +323,7 @@ export class FirebaseStorage implements IStorage {
         createdAt: now,
       };
       
-      const docRef = await qrCodesRef.add(qrCodeWithTimestamps);
+      const docRef = await addDoc(qrCodesRef, qrCodeWithTimestamps);
       return { id: docRef.id, ...qrCodeWithTimestamps } as QrCode;
     } catch (error) {
       console.error("Error creating QR code:", error);
@@ -311,8 +333,9 @@ export class FirebaseStorage implements IStorage {
 
   async getQrCodeByData(qrData: string): Promise<QrCode | undefined> {
     try {
-      const qrCodesRef = adminDb.collection(COLLECTIONS.QR_CODES);
-      const querySnapshot = await qrCodesRef.where("qrData", "==", qrData).limit(1).get();
+      const qrCodesRef = collection(adminDb, COLLECTIONS.QR_CODES);
+      const q = query(qrCodesRef, where("qrData", "==", qrData), limit(1));
+      const querySnapshot = await getDocs(q);
       
       if (!querySnapshot.empty) {
         const docSnap = querySnapshot.docs[0];
@@ -327,8 +350,8 @@ export class FirebaseStorage implements IStorage {
 
   async markQrCodeAsUsed(id: string, scannedBy: string): Promise<void> {
     try {
-      const qrCodeRef = adminDb.collection(COLLECTIONS.QR_CODES).doc(id);
-      await qrCodeRef.update({
+      const qrCodeRef = doc(adminDb, COLLECTIONS.QR_CODES, id);
+      await updateDoc(qrCodeRef, {
         isUsed: true,
         scannedAt: new Date(),
         scannedBy,
@@ -342,7 +365,7 @@ export class FirebaseStorage implements IStorage {
   // Notification operations
   async createNotification(notificationData: InsertNotification): Promise<Notification> {
     try {
-      const notificationsRef = adminDb.collection(COLLECTIONS.NOTIFICATIONS);
+      const notificationsRef = collection(adminDb, COLLECTIONS.NOTIFICATIONS);
       const now = new Date();
       const notificationWithTimestamps = {
         ...notificationData,
@@ -350,7 +373,7 @@ export class FirebaseStorage implements IStorage {
         createdAt: now,
       };
       
-      const docRef = await notificationsRef.add(notificationWithTimestamps);
+      const docRef = await addDoc(notificationsRef, notificationWithTimestamps);
       return { id: docRef.id, ...notificationWithTimestamps } as Notification;
     } catch (error) {
       console.error("Error creating notification:", error);
@@ -360,8 +383,9 @@ export class FirebaseStorage implements IStorage {
 
   async getPendingNotifications(): Promise<Notification[]> {
     try {
-      const notificationsRef = adminDb.collection(COLLECTIONS.NOTIFICATIONS);
-      const querySnapshot = await notificationsRef.where("sent", "==", false).get();
+      const notificationsRef = collection(adminDb, COLLECTIONS.NOTIFICATIONS);
+      const q = query(notificationsRef, where("sent", "==", false));
+      const querySnapshot = await getDocs(q);
       
       return querySnapshot.docs.map(docSnap => 
         this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as Notification
@@ -374,8 +398,8 @@ export class FirebaseStorage implements IStorage {
 
   async markNotificationAsSent(id: string): Promise<void> {
     try {
-      const notificationRef = adminDb.collection(COLLECTIONS.NOTIFICATIONS).doc(id);
-      await notificationRef.update({
+      const notificationRef = doc(adminDb, COLLECTIONS.NOTIFICATIONS, id);
+      await updateDoc(notificationRef, {
         sent: true,
         sentAt: new Date(),
       });
