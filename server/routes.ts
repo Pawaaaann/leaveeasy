@@ -1,6 +1,6 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { storage, initializeSampleData } from "./storage";
 import { QrCodeService } from "./services/qrCodeService";
 import { NotificationService } from "./services/notificationService";
 import { insertLeaveRequestSchema, insertUserSchema } from "@shared/schema";
@@ -29,6 +29,8 @@ const authMiddleware = (req: Request, res: Response, next: any) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Initialize sample data on startup
+  initializeSampleData().catch(console.error);
 
   // User routes
   app.post("/api/users", async (req, res) => {
