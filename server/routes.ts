@@ -270,6 +270,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Parent notification route
+  app.post("/api/notifications/parent/:requestId", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      const { requestId } = req.params;
+      const { phoneNumber, studentName, leaveDetails } = req.body;
+      
+      if (!phoneNumber || !studentName || !leaveDetails) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+      
+      // Send SMS notification to parent
+      await NotificationService.notifyParentBySMS(
+        phoneNumber,
+        requestId,
+        studentName,
+        leaveDetails
+      );
+      
+      res.json({ 
+        message: "SMS notification sent successfully",
+        phoneNumber: phoneNumber
+      });
+    } catch (error) {
+      console.error("Parent notification error:", error);
+      res.status(500).json({ message: "Failed to send notification" });
+    }
+  });
+
   // QR code routes
   app.get("/api/qr-codes/:requestId", authMiddleware, async (req: Request, res: Response) => {
     try {

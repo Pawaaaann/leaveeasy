@@ -3,7 +3,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Check, X, Eye, Phone } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Check, X, Eye, Phone, MessageSquare } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -18,6 +19,7 @@ export default function ApprovalCard({ request }: ApprovalCardProps) {
   const [showDetails, setShowDetails] = useState(false);
   const [comments, setComments] = useState("");
   const [showComments, setShowComments] = useState(false);
+  const [parentNotified, setParentNotified] = useState("not_contacted");
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -96,11 +98,33 @@ export default function ApprovalCard({ request }: ApprovalCardProps) {
     rejectMutation.mutate();
   };
 
-  const contactParent = () => {
-    toast({
-      title: "Parent Contacted",
-      description: "SMS sent to parent mobile number for confirmation",
-    });
+  const contactParent = async () => {
+    try {
+      // Send SMS notification to parent
+      const response = await apiRequest(
+        "POST",
+        `/api/notifications/parent/${request.id}`,
+        { 
+          phoneNumber: request.parentPhone,
+          studentName: `${request.student?.firstName} ${request.student?.lastName}`,
+          leaveDetails: `${request.leaveType} leave from ${new Date(request.fromDate).toLocaleDateString()} to ${new Date(request.toDate).toLocaleDateString()}`
+        }
+      );
+      
+      setParentNotified("contacted");
+      toast({
+        title: "Message Sent!",
+        description: `SMS sent to ${request.parentPhone} for leave confirmation`,
+        duration: 3000,
+      });
+    } catch (error) {
+      console.error("Failed to send parent notification:", error);
+      toast({
+        title: "Message Failed",
+        description: "Failed to send SMS to parent. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const getParentContactStatus = () => {
@@ -159,22 +183,44 @@ export default function ApprovalCard({ request }: ApprovalCardProps) {
 
             {/* Parent Contact Status */}
             {user?.role === "mentor" && (
-              <div className="flex items-center space-x-2 mb-3">
-                <span className="text-sm text-muted-foreground">Parent Contact:</span>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getParentContactStatusColor()}`}>
-                  {getParentContactStatus()}
-                </span>
-                {request.status === "pending" && (
-                  <Button 
-                    size="sm" 
-                    variant="link" 
-                    onClick={contactParent}
-                    data-testid={`button-contact-parent-${request.id}`}
-                  >
-                    <Phone className="h-3 w-3 mr-1" />
-                    Contact Now
-                  </Button>
-                )}
+              <div className="space-y-3 mb-3">
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-muted-foreground">Parent Contact:</span>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getParentContactStatusColor()}`}>
+                    {getParentContactStatus()}
+                  </span>
+                  {request.status === "pending" && (
+                    <Button 
+                      size="sm" 
+                      variant="link" 
+                      onClick={contactParent}
+                      data-testid={`button-contact-parent-${request.id}`}
+                    >
+                      <MessageSquare className="h-3 w-3 mr-1" />
+                      Message Now
+                    </Button>
+                  )}
+                </div>
+                
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm text-muted-foreground">Parent Informed:</span>
+                  <Select value={parentNotified} onValueChange={setParentNotified}>
+                    <SelectTrigger className="w-40 h-8">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="not_contacted">Not Contacted</SelectItem>
+                      <SelectItem value="contacted">Contacted</SelectItem>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="declined">Declined</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {request.parentPhone && (
+                    <span className="text-xs text-muted-foreground">
+                      Phone: {request.parentPhone}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
 

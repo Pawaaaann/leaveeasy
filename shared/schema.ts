@@ -118,7 +118,9 @@ export const insertQrCodeSchema = qrCodeSchema.omit({
 
 export const insertNotificationSchema = notificationSchema.omit({ 
   id: true, 
-  createdAt: true 
+  createdAt: true,
+  sent: true,
+  sentAt: true
 });
 
 // Types
