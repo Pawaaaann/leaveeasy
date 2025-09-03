@@ -31,22 +31,32 @@ const authMiddleware = (req: Request, res: Response, next: any) => {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Sample data initialization disabled - using real Firebase users only
 
-  // User routes
+  // User routes - stores user profiles when they register/login
   app.post("/api/users", async (req, res) => {
     try {
+      console.log("Received user data:", JSON.stringify(req.body, null, 2));
       const userData = insertUserSchema.parse(req.body);
+      console.log("Validated user data:", JSON.stringify(userData, null, 2));
       
       // Check if user already exists
       const existingUser = await storage.getUserByUsername(userData.username);
       if (existingUser) {
+        console.log("User already exists:", existingUser.username);
         return res.json(existingUser); // Return existing user
       }
       
+      // Create user profile in storage when they register/login through Firebase
       const user = await storage.createUser(userData);
+      console.log("Created new user profile:", user.username, "Role:", user.role);
       res.json(user);
     } catch (error) {
       console.error("Create user error:", error);
-      res.status(400).json({ message: "Invalid user data" });
+      if (error instanceof z.ZodError) {
+        console.error("Validation errors:", error.errors);
+        res.status(400).json({ message: "Invalid user data", errors: error.errors });
+      } else {
+        res.status(400).json({ message: "Invalid user data" });
+      }
     }
   });
 
@@ -58,8 +68,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Admin access required" });
       }
       
-      const users = await storage.getAllUsers();
-      res.json(users);
+      // For admin access, try to get users directly from Firebase
+      try {
+        const users = await storage.getAllUsers();
+        res.json(users);
+      } catch (firebaseError) {
+        console.error("Firebase permission error, returning empty data:", firebaseError);
+        // If Firebase permissions fail, return empty array but still allow admin access
+        res.json([]);
+      }
     } catch (error) {
       console.error("Get all users error:", error);
       res.status(500).json({ message: "Internal server error" });

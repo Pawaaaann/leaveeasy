@@ -864,6 +864,7 @@ class MemoryStorage implements IStorage {
 }
 
 // Use memory storage for development to avoid Firebase permission issues
+// Use memory storage for reliable admin access, will be populated by real user registrations
 export const storage = new MemoryStorage();
 
 // Initialize sample data for testing
