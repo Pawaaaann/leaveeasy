@@ -23,7 +23,9 @@ export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState<Partial<User>>({});
+  const [addForm, setAddForm] = useState<Partial<User>>({});
 
   // Fetch system data
   const { data: users, isLoading } = useQuery<User[]>({
@@ -76,6 +78,27 @@ export default function AdminDashboard() {
     }
   });
 
+  const addUserMutation = useMutation({
+    mutationFn: (userData: Partial<User>) => 
+      apiRequest('POST', '/api/admin/users', userData),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      setIsAddDialogOpen(false);
+      setAddForm({});
+      toast({
+        title: "User Added",
+        description: "User has been successfully added to the system",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error", 
+        description: "Failed to add user",
+        variant: "destructive",
+      });
+    }
+  });
+
   // Filter data based on search term
   const filteredUsers = users?.filter(u => 
     u.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -118,6 +141,24 @@ export default function AdminDashboard() {
     if (selectedUser && editForm) {
       updateUserMutation.mutate({ ...editForm, id: selectedUser.id });
     }
+  };
+
+  const handleAddUser = () => {
+    if (!addForm.email || !addForm.password || !addForm.role || !addForm.firstName) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    addUserMutation.mutate(addForm);
+  };
+
+  const openAddDialog = () => {
+    setAddForm({});
+    setIsAddDialogOpen(true);
   };
 
   const handleDeleteUser = (userId: string) => {
@@ -353,10 +394,16 @@ export default function AdminDashboard() {
           <h2 className="text-2xl font-bold">User Management</h2>
           <p className="text-muted-foreground">Manage all system users and their roles</p>
         </div>
-        <Button onClick={() => setCurrentView('dashboard')} data-testid="button-back">
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Dashboard
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={openAddDialog} data-testid="button-add-user">
+            <Plus className="h-4 w-4 mr-2" />
+            Add User
+          </Button>
+          <Button onClick={() => setCurrentView('dashboard')} data-testid="button-back">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Dashboard
+          </Button>
+        </div>
       </div>
 
       {/* Search and Filter */}
@@ -843,6 +890,120 @@ export default function AdminDashboard() {
               data-testid="button-save-edit"
             >
               {updateUserMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add User Dialog */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <DialogContent data-testid="dialog-add-user">
+          <DialogHeader>
+            <DialogTitle>Add New User</DialogTitle>
+            <DialogDescription>
+              Add a new staff member to the system
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="add-firstName">First Name *</Label>
+                <Input
+                  id="add-firstName"
+                  value={addForm.firstName || ""}
+                  onChange={(e) => setAddForm({...addForm, firstName: e.target.value})}
+                  data-testid="input-add-firstName"
+                  placeholder="Enter first name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="add-lastName">Last Name</Label>
+                <Input
+                  id="add-lastName"
+                  value={addForm.lastName || ""}
+                  onChange={(e) => setAddForm({...addForm, lastName: e.target.value})}
+                  data-testid="input-add-lastName"
+                  placeholder="Enter last name"
+                />
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="add-email">Email *</Label>
+              <Input
+                id="add-email"
+                type="email"
+                value={addForm.email || ""}
+                onChange={(e) => setAddForm({...addForm, email: e.target.value})}
+                data-testid="input-add-email"
+                placeholder="Enter email address"
+              />
+            </div>
+            <div>
+              <Label htmlFor="add-password">Password *</Label>
+              <Input
+                id="add-password"
+                type="password"
+                value={addForm.password || ""}
+                onChange={(e) => setAddForm({...addForm, password: e.target.value})}
+                data-testid="input-add-password"
+                placeholder="Enter password"
+              />
+            </div>
+            <div>
+              <Label htmlFor="add-role">Role *</Label>
+              <Select 
+                value={addForm.role || ""} 
+                onValueChange={(value) => setAddForm({...addForm, role: value as any})}
+              >
+                <SelectTrigger data-testid="select-add-role">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {userRoles.filter(role => role !== 'student' && role !== 'admin').map((role) => (
+                    <SelectItem key={role} value={role}>
+                      {role === "hod" ? "Head of Department" : role.charAt(0).toUpperCase() + role.slice(1)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {(addForm.role === 'mentor' || addForm.role === 'hod') && (
+              <div>
+                <Label htmlFor="add-department">Department</Label>
+                <Input
+                  id="add-department"
+                  value={addForm.department || ""}
+                  onChange={(e) => setAddForm({...addForm, department: e.target.value})}
+                  data-testid="input-add-department"
+                  placeholder="Enter department"
+                />
+              </div>
+            )}
+            <div>
+              <Label htmlFor="add-username">Username</Label>
+              <Input
+                id="add-username"
+                value={addForm.username || ""}
+                onChange={(e) => setAddForm({...addForm, username: e.target.value})}
+                data-testid="input-add-username"
+                placeholder="Enter username (optional)"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setIsAddDialogOpen(false)}
+              data-testid="button-cancel-add"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleAddUser}
+              disabled={addUserMutation.isPending}
+              data-testid="button-save-add"
+            >
+              {addUserMutation.isPending ? "Adding..." : "Add User"}
             </Button>
           </div>
         </DialogContent>

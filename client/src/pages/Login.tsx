@@ -10,8 +10,6 @@ import { apiRequest } from "@/lib/queryClient";
 import { userRoles } from "@shared/schema";
 import { Eye, EyeOff, Mail } from "lucide-react";
 import { 
-  signInWithPopup, 
-  GoogleAuthProvider, 
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword
 } from "firebase/auth";
@@ -87,11 +85,48 @@ export default function Login() {
 
     setIsLoading(true);
     
+    // For non-student roles, check if user exists in database first
+    if (formData.role !== "student") {
+      try {
+        const response = await fetch(`/api/users/check/${encodeURIComponent(formData.email)}`);
+        const { exists, user: existingUser } = await response.json();
+        
+        if (!exists) {
+          toast({
+            title: "Account Not Found",
+            description: "Your account needs to be created by an administrator. Please contact the admin.",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+        
+        if (existingUser.role !== formData.role) {
+          toast({
+            title: "Role Mismatch",
+            description: `Your account is registered as ${existingUser.role}. Please select the correct role.`,
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+      } catch (error) {
+        console.error("Error checking user existence:", error);
+        toast({
+          title: "Error",
+          description: "Unable to verify account. Please try again.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+    }
+    
     try {
       let firebaseUser;
       
-      if (isSignUp) {
-        // Create new account
+      if (isSignUp && formData.role === "student") {
+        // Create new account - only for students
         if (!formData.firstName) {
           toast({
             title: "Missing Information",
@@ -164,70 +199,6 @@ export default function Login() {
     }
   };
 
-  const handleGoogleLogin = async () => {
-    if (!formData.role) {
-      toast({
-        title: "Please Select Role",
-        description: "Please select your role before signing in with Google",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    
-    try {
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      const firebaseUser = result.user;
-      
-      // Create user profile or get existing one
-      const userData = {
-        id: firebaseUser.uid,
-        username: firebaseUser.email?.split('@')[0] || firebaseUser.displayName || 'user',
-        email: firebaseUser.email || '',
-        role: formData.role as (typeof userRoles)[number],
-        firstName: firebaseUser.displayName?.split(' ')[0] || '',
-        lastName: firebaseUser.displayName?.split(' ').slice(1).join(' ') || '',
-        department: formData.department || undefined,
-        studentId: formData.studentId || undefined,
-        phone: formData.phone || undefined,
-      };
-      
-      // Send user data to backend to create/update user
-      try {
-        await apiRequest('POST', '/api/users', userData);
-      } catch (error) {
-        console.log('User might already exist, continuing with login');
-      }
-      
-      login({
-        ...userData,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-      
-      toast({
-        title: "Login Successful",
-        description: `Welcome, ${userData.firstName || userData.username}!`,
-      });
-    } catch (error: any) {
-      console.error("Google login error:", error);
-      let errorMessage = "Failed to sign in with Google. Please try again.";
-      
-      if (error.code === "auth/unauthorized-domain") {
-        errorMessage = "This domain is not authorized for Google Sign-In. Please contact support or use email login.";
-      }
-      
-      toast({
-        title: "Login Failed",
-        description: errorMessage,
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -238,10 +209,12 @@ export default function Login() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-bold text-primary mb-2">
-            {isSignUp ? "Create Account" : "College Leave Portal"}
+            {isSignUp && formData.role === "student" ? "Create Student Account" : 
+             "College Leave Portal"}
           </CardTitle>
           <CardDescription>
-            {isSignUp ? "Join the Automated Leave Management System" : "Automated Leave Management System"}
+            {isSignUp && formData.role === "student" ? "Create your student account" :
+             "Automated Leave Management System"}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -253,7 +226,13 @@ export default function Login() {
                   <SelectValue placeholder="Select your role" />
                 </SelectTrigger>
                 <SelectContent>
-                  {userRoles.map((role) => (
+                  {userRoles.filter(role => {
+                    // For signup, only show student and admin roles
+                    if (isSignUp && role !== "student" && role !== "admin") {
+                      return false;
+                    }
+                    return true;
+                  }).map((role) => (
                     <SelectItem key={role} value={role}>
                       {role === "hod" ? "Head of Department" : 
                        role === "mentor" ? "Department Mentor" :
@@ -320,7 +299,8 @@ export default function Login() {
               </div>
             </div>
             
-            {isSignUp && (
+            {/* Show additional fields only for student signup */}
+            {isSignUp && formData.role === "student" && (
               <>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -359,47 +339,41 @@ export default function Login() {
                   />
                 </div>
                 
-                {formData.role === "student" && (
-                  <div>
-                    <Label htmlFor="studentId">Student ID *</Label>
-                    <Input
-                      id="studentId"
-                      type="text"
-                      placeholder="Enter student ID"
-                      value={formData.studentId}
-                      onChange={(e) => handleInputChange("studentId", e.target.value)}
-                      data-testid="input-studentId"
-                    />
-                  </div>
-                )}
+                <div>
+                  <Label htmlFor="studentId">Student ID *</Label>
+                  <Input
+                    id="studentId"
+                    type="text"
+                    placeholder="Enter student ID"
+                    value={formData.studentId}
+                    onChange={(e) => handleInputChange("studentId", e.target.value)}
+                    data-testid="input-studentId"
+                  />
+                </div>
                 
-                {(formData.role === "student" || formData.role === "mentor" || formData.role === "hod") && (
-                  <div>
-                    <Label htmlFor="department">Department</Label>
-                    <Input
-                      id="department"
-                      type="text"
-                      placeholder="Enter department"
-                      value={formData.department}
-                      onChange={(e) => handleInputChange("department", e.target.value)}
-                      data-testid="input-department"
-                    />
-                  </div>
-                )}
+                <div>
+                  <Label htmlFor="department">Department</Label>
+                  <Input
+                    id="department"
+                    type="text"
+                    placeholder="Enter department"
+                    value={formData.department}
+                    onChange={(e) => handleInputChange("department", e.target.value)}
+                    data-testid="input-department"
+                  />
+                </div>
                 
-                {formData.role === "parent" && (
-                  <div>
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      placeholder="Enter phone number"
-                      value={formData.phone}
-                      onChange={(e) => handleInputChange("phone", e.target.value)}
-                      data-testid="input-phone"
-                    />
-                  </div>
-                )}
+                <div>
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <Input
+                    id="phone"
+                    type="tel"
+                    placeholder="Enter phone number"
+                    value={formData.phone}
+                    onChange={(e) => handleInputChange("phone", e.target.value)}
+                    data-testid="input-phone"
+                  />
+                </div>
               </>
             )}
             
@@ -412,43 +386,20 @@ export default function Login() {
               data-testid="button-email-login"
             >
               <Mail className="h-4 w-4 mr-2" />
-              {isLoading ? "Processing..." : (isSignUp ? "Create Account" : "Sign In")}
+              {isLoading ? "Processing..." : (
+                isSignUp && formData.role === "student" ? "Create Student Account" :
+                isSignUp ? "Account Setup" :
+                "Sign In"
+              )}
             </Button>
-
-            {/* Google Login - Hidden for admin */}
-            {formData.role !== "admin" && (
-              <>
-                {/* Divider */}
-                <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">
-                      Or continue with
-                    </span>
-                  </div>
-                </div>
-                
-                {/* Google Login Button */}
-                <Button 
-                  type="button" 
-                  variant="outline"
-                  className="w-full" 
-                  disabled={isLoading}
-                  onClick={handleGoogleLogin}
-                  data-testid="button-google-login"
-                >
-                  {isLoading ? "Signing in..." : "Sign in with Google"}
-                </Button>
-              </>
-            )}
           </div>
           
           <div className="mt-6 text-center space-y-2">
-            {formData.role !== "admin" && (
+            {/* Only show signup toggle for students */}
+            {(formData.role === "student" || !formData.role) && (
               <Button
                 variant="link"
+                className="text-sm"
                 onClick={() => {
                   setIsSignUp(!isSignUp);
                   setFormData({
@@ -465,8 +416,21 @@ export default function Login() {
                 }}
                 data-testid="button-toggle-mode"
               >
-                {isSignUp ? "Already have an account? Sign In" : "New user? Create an account"}
+                {isSignUp ? "Already have an account? Sign In" : "Need a student account? Create one"}
               </Button>
+            )}
+            
+            {/* Warning for non-student roles */}
+            {formData.role && formData.role !== "student" && formData.role !== "admin" && (
+              <div className="text-sm text-center text-muted-foreground border border-orange-200 bg-orange-50 dark:bg-orange-900/20 dark:border-orange-800 p-3 rounded-md">
+                <p className="font-medium text-orange-700 dark:text-orange-300 mb-1">
+                  Account Required
+                </p>
+                <p className="text-xs text-orange-600 dark:text-orange-400">
+                  {formData.role.charAt(0).toUpperCase() + formData.role.slice(1)} accounts must be created by an administrator.
+                  Please contact the admin to set up your account first.
+                </p>
+              </div>
             )}
             
             {!isSignUp && (

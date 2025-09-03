@@ -3,8 +3,10 @@ import { createServer, type Server } from "http";
 import { storage, initializeSampleData } from "./storage";
 import { QrCodeService } from "./services/qrCodeService";
 import { NotificationService } from "./services/notificationService";
-import { insertLeaveRequestSchema, insertUserSchema, type LeaveRequest } from "@shared/schema";
+import { insertLeaveRequestSchema, insertUserSchema, type LeaveRequest, COLLECTIONS } from "@shared/schema";
 import { z } from "zod";
+import { adminDb } from "./firebaseAdmin";
+import { collection, query, where, limit, getDocs } from "firebase/firestore";
 
 declare global {
   namespace Express {
@@ -57,6 +59,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         res.status(400).json({ message: "Invalid user data" });
       }
+    }
+  });
+
+  // Admin route for creating users directly (without Firebase auth)
+  app.post("/api/admin/users", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      // Only allow admin access
+      if (req.userRole !== "admin") {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const userData = insertUserSchema.parse(req.body);
+      
+      // Check if user already exists
+      const existingUser = await storage.getUserByUsername(userData.username || userData.email?.split('@')[0] || 'user');
+      if (existingUser) {
+        return res.status(400).json({ message: "User with this email already exists" });
+      }
+      
+      // Generate username from email if not provided
+      if (!userData.username) {
+        userData.username = userData.email?.split('@')[0] || 'user';
+      }
+      
+      // Create user directly in database without Firebase auth
+      const user = await storage.createUser(userData);
+      console.log("Admin created new user:", user.username, "Role:", user.role);
+      res.json(user);
+    } catch (error) {
+      console.error("Admin create user error:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid user data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Internal server error" });
+      }
+    }
+  });
+
+  // Check if user exists by email (for login validation)
+  app.get("/api/users/check/:email", async (req: Request, res: Response) => {
+    try {
+      const { email } = req.params;
+      
+      // First try to find by username (email without domain)
+      const username = email.split('@')[0];
+      let user = await storage.getUserByUsername(username);
+      
+      // If not found by username, check all users to find by email
+      if (!user) {
+        const allUsers = await storage.getAllUsers();
+        user = allUsers.find(u => u.email === email);
+      }
+      
+      res.json({ exists: !!user, user });
+    } catch (error) {
+      console.error("Check user existence error:", error);
+      res.status(500).json({ message: "Internal server error" });
     }
   });
 
