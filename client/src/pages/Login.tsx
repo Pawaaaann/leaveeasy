@@ -140,9 +140,31 @@ export default function Login() {
         const result = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
         firebaseUser = result.user;
       } else {
-        // Sign in existing user
-        const result = await signInWithEmailAndPassword(auth, formData.email, formData.password);
-        firebaseUser = result.user;
+        // Sign in existing user or create Firebase account for admin-created users
+        try {
+          const result = await signInWithEmailAndPassword(auth, formData.email, formData.password);
+          firebaseUser = result.user;
+        } catch (authError: any) {
+          // If user not found in Firebase but exists in our database (admin-created user),
+          // create their Firebase account automatically
+          if (authError.code === "auth/user-not-found" && formData.role !== "student") {
+            try {
+              console.log("Creating Firebase account for admin-created user");
+              const result = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+              firebaseUser = result.user;
+              
+              toast({
+                title: "Account Setup Complete",
+                description: "Your Firebase authentication has been set up successfully.",
+              });
+            } catch (createError: any) {
+              console.error("Failed to create Firebase account:", createError);
+              throw authError; // Re-throw original error
+            }
+          } else {
+            throw authError; // Re-throw if it's not a user-not-found error
+          }
+        }
       }
       
       // Create user profile or get existing one
@@ -180,13 +202,19 @@ export default function Login() {
       let errorMessage = "Authentication failed. Please try again.";
       
       if (error.code === "auth/user-not-found") {
-        errorMessage = "No account found with this email. Please sign up first.";
+        if (formData.role === "student") {
+          errorMessage = "No account found with this email. Please sign up first.";
+        } else {
+          errorMessage = "No account found with this email. Please contact the admin to set up your account.";
+        }
       } else if (error.code === "auth/wrong-password") {
         errorMessage = "Incorrect password. Please try again.";
       } else if (error.code === "auth/email-already-in-use") {
         errorMessage = "An account with this email already exists. Please sign in instead.";
       } else if (error.code === "auth/weak-password") {
         errorMessage = "Password should be at least 6 characters long.";
+      } else if (error.code === "auth/invalid-email") {
+        errorMessage = "Please enter a valid email address.";
       }
       
       toast({
