@@ -36,6 +36,46 @@ export default function Login() {
   const { toast } = useToast();
 
   const handleEmailLogin = async () => {
+    // Handle admin login separately
+    if (formData.role === "admin") {
+      if (!formData.username || !formData.password) {
+        toast({
+          title: "Missing Information",
+          description: "Please enter admin username and password",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (formData.username === "admin" && formData.password === "admin1234") {
+        const adminUser = {
+          id: "admin-user",
+          username: "admin",
+          email: "admin@college.edu",
+          role: "admin" as const,
+          firstName: "Admin",
+          lastName: "User",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        login(adminUser);
+        
+        toast({
+          title: "Admin Login Successful",
+          description: "Welcome, Administrator!",
+        });
+        return;
+      } else {
+        toast({
+          title: "Invalid Credentials",
+          description: "Invalid admin username or password",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     if (!formData.email || !formData.password || !formData.role) {
       toast({
         title: "Missing Information",
@@ -225,18 +265,32 @@ export default function Login() {
               </Select>
             </div>
 
-            {/* Email Login Fields */}
-            <div>
-              <Label htmlFor="email">Email Address</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Enter your email"
-                value={formData.email}
-                onChange={(e) => handleInputChange("email", e.target.value)}
-                data-testid="input-email"
-              />
-            </div>
+            {/* Email/Username Login Fields */}
+            {formData.role === "admin" ? (
+              <div>
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="Enter admin username"
+                  value={formData.username}
+                  onChange={(e) => handleInputChange("username", e.target.value)}
+                  data-testid="input-admin-username"
+                />
+              </div>
+            ) : (
+              <div>
+                <Label htmlFor="email">Email Address</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange("email", e.target.value)}
+                  data-testid="input-email"
+                />
+              </div>
+            )}
 
             <div>
               <Label htmlFor="password">Password</Label>
@@ -361,52 +415,59 @@ export default function Login() {
               {isLoading ? "Processing..." : (isSignUp ? "Create Account" : "Sign In")}
             </Button>
 
-            {/* Divider */}
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  Or continue with
-                </span>
-              </div>
-            </div>
-            
-            {/* Google Login Button */}
-            <Button 
-              type="button" 
-              variant="outline"
-              className="w-full" 
-              disabled={isLoading}
-              onClick={handleGoogleLogin}
-              data-testid="button-google-login"
-            >
-              {isLoading ? "Signing in..." : "Sign in with Google"}
-            </Button>
+            {/* Google Login - Hidden for admin */}
+            {formData.role !== "admin" && (
+              <>
+                {/* Divider */}
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">
+                      Or continue with
+                    </span>
+                  </div>
+                </div>
+                
+                {/* Google Login Button */}
+                <Button 
+                  type="button" 
+                  variant="outline"
+                  className="w-full" 
+                  disabled={isLoading}
+                  onClick={handleGoogleLogin}
+                  data-testid="button-google-login"
+                >
+                  {isLoading ? "Signing in..." : "Sign in with Google"}
+                </Button>
+              </>
+            )}
           </div>
           
           <div className="mt-6 text-center space-y-2">
-            <Button
-              variant="link"
-              onClick={() => {
-                setIsSignUp(!isSignUp);
-                setFormData({
-                  username: "",
-                  password: "",
-                  role: "",
-                  firstName: "",
-                  lastName: "",
-                  email: "",
-                  department: "",
-                  studentId: "",
-                  phone: "",
-                });
-              }}
-              data-testid="button-toggle-mode"
-            >
-              {isSignUp ? "Already have an account? Sign In" : "New user? Create an account"}
-            </Button>
+            {formData.role !== "admin" && (
+              <Button
+                variant="link"
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  setFormData({
+                    username: "",
+                    password: "",
+                    role: "",
+                    firstName: "",
+                    lastName: "",
+                    email: "",
+                    department: "",
+                    studentId: "",
+                    phone: "",
+                  });
+                }}
+                data-testid="button-toggle-mode"
+              >
+                {isSignUp ? "Already have an account? Sign In" : "New user? Create an account"}
+              </Button>
+            )}
             
             {!isSignUp && (
               <div>

@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Login from "@/pages/Login";
 import StudentDashboard from "@/pages/StudentDashboard";
 import ApprovalDashboard from "@/pages/ApprovalDashboard";
+import AdminDashboard from "@/pages/AdminDashboard";
 import QRCodePage from "@/pages/QRCodePage";
 import QRScanner from "@/pages/QRScanner";
 import WorkflowTracker from "@/pages/WorkflowTracker";
@@ -35,6 +36,10 @@ function Router() {
   // Render based on user role
   if (user.role === "student") {
     return <StudentDashboard />;
+  }
+  
+  if (user.role === "admin") {
+    return <AdminDashboard />;
   }
   
   if (["mentor", "hod", "principal", "warden", "parent"].includes(user.role)) {
