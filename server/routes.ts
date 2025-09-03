@@ -29,8 +29,7 @@ const authMiddleware = (req: Request, res: Response, next: any) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Initialize sample data on startup
-  initializeSampleData().catch(console.error);
+  // Sample data initialization disabled - using real Firebase users only
 
   // User routes
   app.post("/api/users", async (req, res) => {
