@@ -30,6 +30,9 @@ export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [isPasswordSetup, setIsPasswordSetup] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [existingUserData, setExistingUserData] = useState<any>(null);
   const { login } = useAuth();
   const { toast } = useToast();
 
@@ -145,8 +148,32 @@ export default function Login() {
           const result = await signInWithEmailAndPassword(auth, formData.email, formData.password);
           firebaseUser = result.user;
         } catch (authError: any) {
-          // If user not found in Firebase but exists in our database (admin-created user),
-          // create their Firebase account automatically
+          // Handle different authentication scenarios for admin-created users
+          if ((authError.code === "auth/user-not-found" || authError.code === "auth/invalid-credential") && formData.role !== "student") {
+            try {
+              // Check if user exists in our database
+              const response = await fetch(`/api/users/check/${encodeURIComponent(formData.email)}`);
+              const { exists, user: dbUser } = await response.json();
+              
+              if (exists && dbUser) {
+                // User exists in database but not in Firebase or wrong password
+                // Switch to password setup mode
+                setExistingUserData(dbUser);
+                setIsPasswordSetup(true);
+                setIsLoading(false);
+                
+                toast({
+                  title: "Password Setup Required",
+                  description: "Please set up your password to access your account.",
+                });
+                return;
+              }
+            } catch (checkError) {
+              console.error("Error checking user existence:", checkError);
+            }
+          }
+          
+          // If it's auth/user-not-found and they exist in database, create Firebase account
           if (authError.code === "auth/user-not-found" && formData.role !== "student") {
             try {
               console.log("Creating Firebase account for admin-created user with email:", formData.email);
@@ -277,6 +304,78 @@ export default function Login() {
   };
 
 
+  const handlePasswordSetup = async () => {
+    if (!formData.password || formData.password.length < 6) {
+      toast({
+        title: "Invalid Password",
+        description: "Password must be at least 6 characters long",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (formData.password !== confirmPassword) {
+      toast({
+        title: "Password Mismatch",
+        description: "Passwords do not match. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Create Firebase account with the new password
+      console.log("Setting up Firebase account for:", formData.email);
+      const result = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+      const firebaseUser = result.user;
+
+      // Use the existing user data from database
+      const userData = {
+        ...existingUserData,
+        id: firebaseUser.uid,
+      };
+
+      // Update user profile in backend
+      try {
+        await apiRequest('POST', '/api/users', userData);
+      } catch (error) {
+        console.log('User might already exist, continuing with login');
+      }
+
+      const finalUserData = {
+        ...userData,
+        createdAt: new Date(userData.createdAt),
+        updatedAt: new Date(),
+      };
+
+      console.log("Password setup complete, logging in user:", finalUserData);
+      login(finalUserData);
+
+      toast({
+        title: "Password Set Successfully",
+        description: `Welcome, ${userData.firstName || userData.username}!`,
+      });
+    } catch (error: any) {
+      console.error("Password setup error:", error);
+      let errorMessage = "Failed to set up password. Please try again.";
+      
+      if (error.code === "auth/email-already-in-use") {
+        errorMessage = "This email is already registered. Please try signing in instead.";
+      } else if (error.code === "auth/weak-password") {
+        errorMessage = "Password should be at least 6 characters long.";
+      }
+
+      toast({
+        title: "Password Setup Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -286,43 +385,127 @@ export default function Login() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-bold text-primary mb-2">
-            {isSignUp && formData.role === "student" ? "Create Student Account" : 
+            {isPasswordSetup ? "Set Up Your Password" :
+             isSignUp && formData.role === "student" ? "Create Student Account" : 
              "College Leave Portal"}
           </CardTitle>
           <CardDescription>
-            {isSignUp && formData.role === "student" ? "Create your student account" :
+            {isPasswordSetup ? `Welcome ${existingUserData?.firstName || existingUserData?.username}! Please set up your password to access your ${existingUserData?.role} account.` :
+             isSignUp && formData.role === "student" ? "Create your student account" :
              "Automated Leave Management System"}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="userType">{isSignUp ? "Account Type" : "Login As"}</Label>
-              <Select value={formData.role} onValueChange={(value) => handleInputChange("role", value)}>
-                <SelectTrigger data-testid="select-role">
-                  <SelectValue placeholder="Select your role" />
-                </SelectTrigger>
-                <SelectContent>
-                  {userRoles.filter(role => {
-                    // For signup, only show student and admin roles
-                    if (isSignUp && role !== "student" && role !== "admin") {
-                      return false;
-                    }
-                    return true;
-                  }).map((role) => (
-                    <SelectItem key={role} value={role}>
-                      {role === "hod" ? "Head of Department" : 
-                       role === "mentor" ? "Department Mentor" :
-                       role === "warden" ? "Hostel Warden" :
-                       role.charAt(0).toUpperCase() + role.slice(1)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {isPasswordSetup ? (
+            // Password Setup Form
+            <div className="space-y-4">
+              <div className="text-center text-sm text-muted-foreground bg-blue-50 dark:bg-blue-900/20 p-3 rounded-md border border-blue-200 dark:border-blue-800">
+                <p className="font-medium text-blue-700 dark:text-blue-300">Account Found!</p>
+                <p className="text-blue-600 dark:text-blue-400 text-xs mt-1">
+                  Email: {formData.email}<br />
+                  Role: {existingUserData?.role?.charAt(0).toUpperCase() + existingUserData?.role?.slice(1)}
+                  {existingUserData?.department && (
+                    <><br />Department: {existingUserData.department}</>
+                  )}
+                </p>
+              </div>
+              
+              <div>
+                <Label htmlFor="setup-password">Choose Your Password</Label>
+                <div className="relative">
+                  <Input
+                    id="setup-password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Enter your new password (min 6 characters)"
+                    value={formData.password}
+                    onChange={(e) => handleInputChange("password", e.target.value)}
+                    data-testid="input-setup-password"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                    onClick={() => setShowPassword(!showPassword)}
+                    data-testid="button-toggle-setup-password"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
 
-            {/* Email/Username Login Fields */}
-            {formData.role === "admin" ? (
+              <div>
+                <Label htmlFor="confirm-password">Confirm Password</Label>
+                <Input
+                  id="confirm-password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Confirm your new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  data-testid="input-confirm-password"
+                />
+              </div>
+
+              <Button 
+                type="button" 
+                className="w-full" 
+                disabled={isLoading}
+                onClick={handlePasswordSetup}
+                data-testid="button-setup-password"
+              >
+                {isLoading ? "Setting Up..." : "Set Password & Login"}
+              </Button>
+
+              <div className="text-center">
+                <Button
+                  variant="link"
+                  className="text-sm"
+                  onClick={() => {
+                    setIsPasswordSetup(false);
+                    setExistingUserData(null);
+                    setConfirmPassword("");
+                    setFormData(prev => ({ ...prev, password: "" }));
+                  }}
+                  data-testid="button-back-to-login"
+                >
+                  ← Back to Login
+                </Button>
+              </div>
+            </div>
+          ) : (
+            // Regular Login/Signup Form
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="userType">{isSignUp ? "Account Type" : "Login As"}</Label>
+                <Select value={formData.role} onValueChange={(value) => handleInputChange("role", value)}>
+                  <SelectTrigger data-testid="select-role">
+                    <SelectValue placeholder="Select your role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {userRoles.filter(role => {
+                      // For signup, only show student and admin roles
+                      if (isSignUp && role !== "student" && role !== "admin") {
+                        return false;
+                      }
+                      return true;
+                    }).map((role) => (
+                      <SelectItem key={role} value={role}>
+                        {role === "hod" ? "Head of Department" : 
+                         role === "mentor" ? "Department Mentor" :
+                         role === "warden" ? "Hostel Warden" :
+                         role.charAt(0).toUpperCase() + role.slice(1)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Email/Username Login Fields */}
+              {formData.role === "admin" ? (
               <div>
                 <Label htmlFor="username">Username</Label>
                 <Input
@@ -469,9 +652,8 @@ export default function Login() {
                 "Sign In"
               )}
             </Button>
-          </div>
-          
-          <div className="mt-6 text-center space-y-2">
+            
+            <div className="mt-6 text-center space-y-2">
             {/* Only show signup toggle for students */}
             {(formData.role === "student" || !formData.role) && (
               <Button
@@ -517,7 +699,8 @@ export default function Login() {
                 </a>
               </div>
             )}
-          </div>
+            </div>
+            )}
         </CardContent>
       </Card>
     </div>
