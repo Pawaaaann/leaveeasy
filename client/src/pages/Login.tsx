@@ -149,7 +149,7 @@ export default function Login() {
           // create their Firebase account automatically
           if (authError.code === "auth/user-not-found" && formData.role !== "student") {
             try {
-              console.log("Creating Firebase account for admin-created user");
+              console.log("Creating Firebase account for admin-created user with email:", formData.email);
               const result = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
               firebaseUser = result.user;
               
