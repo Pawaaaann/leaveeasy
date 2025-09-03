@@ -84,19 +84,18 @@ export function useAuth() {
       }
     });
 
-    // Set not loading after initial check
-    setAuthState(prev => ({ ...prev, isLoading: false }));
-
     return () => unsubscribe();
   }, []);
 
   const login = (user: User) => {
+    console.log("Manual login called with user:", user.username, "role:", user.role);
     localStorage.setItem("userProfile", JSON.stringify(user));
     setAuthState({
       user,
       isLoading: false,
       isAuthenticated: true,
     });
+    console.log("Auth state updated after manual login");
   };
 
   const logout = async () => {

@@ -167,18 +167,63 @@ export default function Login() {
         }
       }
       
-      // Create user profile or get existing one
-      const userData = {
-        id: firebaseUser.uid,
-        username: formData.username || firebaseUser.email?.split('@')[0] || 'user',
-        email: firebaseUser.email || '',
-        role: formData.role as (typeof userRoles)[number],
-        firstName: formData.firstName || '',
-        lastName: formData.lastName || '',
-        department: formData.department || undefined,
-        studentId: formData.studentId || undefined,
-        phone: formData.phone || undefined,
-      };
+      // For admin-created users, get the existing user data from database
+      let userData;
+      if (formData.role !== "student") {
+        try {
+          const response = await fetch(`/api/users/check/${encodeURIComponent(formData.email)}`);
+          const { exists, user: existingUser } = await response.json();
+          
+          if (exists && existingUser) {
+            // Use existing user data from database, but update the Firebase UID
+            userData = {
+              ...existingUser,
+              id: firebaseUser.uid,
+            };
+            console.log("Using existing user data from database:", userData);
+          } else {
+            // Fallback to constructed data (shouldn't happen for admin-created users)
+            userData = {
+              id: firebaseUser.uid,
+              username: formData.username || firebaseUser.email?.split('@')[0] || 'user',
+              email: firebaseUser.email || '',
+              role: formData.role as (typeof userRoles)[number],
+              firstName: formData.firstName || '',
+              lastName: formData.lastName || '',
+              department: formData.department || undefined,
+              studentId: formData.studentId || undefined,
+              phone: formData.phone || undefined,
+            };
+          }
+        } catch (error) {
+          console.error("Error fetching existing user data:", error);
+          // Fallback to constructed data
+          userData = {
+            id: firebaseUser.uid,
+            username: formData.username || firebaseUser.email?.split('@')[0] || 'user',
+            email: firebaseUser.email || '',
+            role: formData.role as (typeof userRoles)[number],
+            firstName: formData.firstName || '',
+            lastName: formData.lastName || '',
+            department: formData.department || undefined,
+            studentId: formData.studentId || undefined,
+            phone: formData.phone || undefined,
+          };
+        }
+      } else {
+        // For students, construct data from form
+        userData = {
+          id: firebaseUser.uid,
+          username: formData.username || firebaseUser.email?.split('@')[0] || 'user',
+          email: firebaseUser.email || '',
+          role: formData.role as (typeof userRoles)[number],
+          firstName: formData.firstName || '',
+          lastName: formData.lastName || '',
+          department: formData.department || undefined,
+          studentId: formData.studentId || undefined,
+          phone: formData.phone || undefined,
+        };
+      }
       
       // Send user data to backend to create/update user
       try {
@@ -187,11 +232,15 @@ export default function Login() {
         console.log('User might already exist, continuing with login');
       }
       
-      login({
+      const finalUserData = {
         ...userData,
         createdAt: new Date(),
         updatedAt: new Date(),
-      });
+      };
+      
+      console.log("About to call login() with:", finalUserData);
+      login(finalUserData);
+      console.log("Login function called, should redirect now");
       
       toast({
         title: isSignUp ? "Account Created" : "Login Successful",
