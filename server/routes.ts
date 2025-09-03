@@ -51,6 +51,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin-only routes for user management
+  app.get("/api/users", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      // Only allow admin access
+      if (req.userRole !== "admin") {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Get all users error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   app.get("/api/users/role/:role", authMiddleware, async (req: Request, res: Response) => {
     try {
       const { role } = req.params;
@@ -58,6 +74,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(users);
     } catch (error) {
       console.error("Get users by role error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.put("/api/users/:id", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      // Only allow admin access
+      if (req.userRole !== "admin") {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { id } = req.params;
+      const userData = req.body;
+      
+      const updatedUser = await storage.updateUser(id, userData);
+      res.json(updatedUser);
+    } catch (error) {
+      console.error("Update user error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/users/:id", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      // Only allow admin access
+      if (req.userRole !== "admin") {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { id } = req.params;
+      await storage.deleteUser(id);
+      res.json({ message: "User deleted successfully" });
+    } catch (error) {
+      console.error("Delete user error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  // Admin route to get all leave requests
+  app.get("/api/leave-requests", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      // Only allow admin access
+      if (req.userRole !== "admin") {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const requests = await storage.getAllLeaveRequests();
+      res.json(requests);
+    } catch (error) {
+      console.error("Get all leave requests error:", error);
       res.status(500).json({ message: "Internal server error" });
     }
   });

@@ -32,8 +32,12 @@ export interface IStorage {
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   getUsersByRole(role: string): Promise<User[]>;
+  getAllUsers(): Promise<User[]>;
+  updateUser(id: string, userData: Partial<User>): Promise<User>;
+  deleteUser(id: string): Promise<void>;
   
   // Leave request operations
+  getAllLeaveRequests(): Promise<LeaveRequest[]>;
   createLeaveRequest(request: InsertLeaveRequest): Promise<LeaveRequest>;
   getLeaveRequest(id: string): Promise<LeaveRequest | undefined>;
   getLeaveRequestsByStudent(studentId: string): Promise<LeaveRequest[]>;
@@ -143,6 +147,49 @@ export class FirebaseStorage implements IStorage {
     }
   }
 
+  async getAllUsers(): Promise<User[]> {
+    try {
+      const usersRef = collection(adminDb, COLLECTIONS.USERS);
+      const querySnapshot = await getDocs(usersRef);
+      
+      return querySnapshot.docs.map(docSnap => 
+        this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as User
+      );
+    } catch (error) {
+      console.error("Error getting all users:", error);
+      return [];
+    }
+  }
+
+  async updateUser(id: string, userData: Partial<User>): Promise<User> {
+    try {
+      const userRef = doc(adminDb, COLLECTIONS.USERS, id);
+      const updateData = {
+        ...userData,
+        updatedAt: new Date(),
+      };
+      
+      await updateDoc(userRef, updateData);
+      
+      // Get updated user
+      const updatedUser = await this.getUser(id);
+      return updatedUser!;
+    } catch (error) {
+      console.error("Error updating user:", error);
+      throw error;
+    }
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    try {
+      const userRef = doc(adminDb, COLLECTIONS.USERS, id);
+      await deleteDoc(userRef);
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      throw error;
+    }
+  }
+
   // Leave request operations
   async createLeaveRequest(requestData: InsertLeaveRequest): Promise<LeaveRequest> {
     try {
@@ -194,6 +241,21 @@ export class FirebaseStorage implements IStorage {
       );
     } catch (error) {
       console.error("Error getting leave requests by student:", error);
+      return [];
+    }
+  }
+
+  async getAllLeaveRequests(): Promise<LeaveRequest[]> {
+    try {
+      const requestsRef = collection(adminDb, COLLECTIONS.LEAVE_REQUESTS);
+      const q = query(requestsRef, orderBy("createdAt", "desc"));
+      const querySnapshot = await getDocs(q);
+      
+      return querySnapshot.docs.map(docSnap => 
+        this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as LeaveRequest
+      );
+    } catch (error) {
+      console.error("Error getting all leave requests:", error);
       return [];
     }
   }
@@ -573,6 +635,29 @@ class MemoryStorage implements IStorage {
     return Array.from(this.users.values()).filter(user => user.role === role);
   }
 
+  async getAllUsers(): Promise<User[]> {
+    return Array.from(this.users.values());
+  }
+
+  async updateUser(id: string, userData: Partial<User>): Promise<User> {
+    const existingUser = this.users.get(id);
+    if (!existingUser) {
+      throw new Error("User not found");
+    }
+    
+    const updatedUser = {
+      ...existingUser,
+      ...userData,
+      updatedAt: new Date(),
+    };
+    this.users.set(id, updatedUser);
+    return updatedUser;
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    this.users.delete(id);
+  }
+
   // Leave request operations
   async createLeaveRequest(requestData: InsertLeaveRequest): Promise<LeaveRequest> {
     const id = this.generateId();
@@ -596,6 +681,11 @@ class MemoryStorage implements IStorage {
   async getLeaveRequestsByStudent(studentId: string): Promise<LeaveRequest[]> {
     return Array.from(this.leaveRequests.values())
       .filter(request => request.studentId === studentId)
+      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
+  }
+
+  async getAllLeaveRequests(): Promise<LeaveRequest[]> {
+    return Array.from(this.leaveRequests.values())
       .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
   }
 
