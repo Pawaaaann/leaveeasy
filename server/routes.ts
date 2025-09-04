@@ -31,7 +31,8 @@ const authMiddleware = (req: Request, res: Response, next: any) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Sample data initialization disabled - using real Firebase users only
+  // Initialize sample data for testing
+  await initializeSampleData();
 
   // User routes - stores user profiles when they register/login
   app.post("/api/users", async (req, res) => {
