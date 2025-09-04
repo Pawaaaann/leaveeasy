@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { LogOut, Users, FileText, Settings, BarChart3, Eye, Edit, Trash2, Plus, Search, ArrowLeft, CheckCircle, XCircle, Clock } from "lucide-react";
 import { User, LeaveRequest, userRoles } from "@shared/schema";
+import { departments } from "@shared/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -868,12 +869,21 @@ export default function AdminDashboard() {
             </div>
             <div>
               <Label htmlFor="department">Department</Label>
-              <Input
-                id="department"
-                value={editForm.department || ""}
-                onChange={(e) => setEditForm({...editForm, department: e.target.value})}
-                data-testid="input-edit-department"
-              />
+              <Select 
+                value={editForm.department || ""} 
+                onValueChange={(value) => setEditForm({...editForm, department: value})}
+              >
+                <SelectTrigger data-testid="select-edit-department">
+                  <SelectValue placeholder="Select department" />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map((dept) => (
+                    <SelectItem key={dept} value={dept}>
+                      {dept}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="flex justify-end gap-2">
@@ -970,13 +980,21 @@ export default function AdminDashboard() {
             {(addForm.role === 'mentor' || addForm.role === 'hod') && (
               <div>
                 <Label htmlFor="add-department">Department</Label>
-                <Input
-                  id="add-department"
-                  value={addForm.department || ""}
-                  onChange={(e) => setAddForm({...addForm, department: e.target.value})}
-                  data-testid="input-add-department"
-                  placeholder="Enter department"
-                />
+                <Select 
+                  value={addForm.department || ""} 
+                  onValueChange={(value) => setAddForm({...addForm, department: value})}
+                >
+                  <SelectTrigger data-testid="select-add-department">
+                    <SelectValue placeholder="Select department" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept} value={dept}>
+                        {dept}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
             <div>
