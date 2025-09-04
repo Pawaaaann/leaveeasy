@@ -6,7 +6,7 @@ import { NotificationService } from "./services/notificationService";
 import { insertLeaveRequestSchema, insertUserSchema, type LeaveRequest, COLLECTIONS } from "@shared/schema";
 import { z } from "zod";
 import { adminDb } from "./firebaseAdmin";
-import { collection, query, where, limit, getDocs } from "firebase/firestore";
+import { collection, query, where, limit, getDocs } from "firebase-admin/firestore";
 
 declare global {
   namespace Express {

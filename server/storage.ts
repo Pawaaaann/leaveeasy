@@ -12,19 +12,7 @@ import {
   type InsertNotification,
 } from "@shared/schema";
 import { adminDb } from "./firebaseAdmin";
-import { 
-  collection, 
-  doc, 
-  getDoc, 
-  getDocs, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc,
-  query, 
-  where, 
-  orderBy, 
-  limit 
-} from "firebase/firestore";
+// Firebase Admin SDK uses different API - methods are called directly on collections and documents
 
 export interface IStorage {
   // User operations
@@ -85,11 +73,10 @@ export class FirebaseStorage implements IStorage {
   // User operations
   async getUser(id: string): Promise<User | undefined> {
     try {
-      const userRef = doc(adminDb, COLLECTIONS.USERS, id);
-      const userSnap = await getDoc(userRef);
+      const userDoc = await adminDb.collection(COLLECTIONS.USERS).doc(id).get();
       
-      if (userSnap.exists()) {
-        return this.convertTimestamps({ id: userSnap.id, ...userSnap.data() }) as User;
+      if (userDoc.exists) {
+        return this.convertTimestamps({ id: userDoc.id, ...userDoc.data() }) as User;
       }
       return undefined;
     } catch (error) {
@@ -100,9 +87,10 @@ export class FirebaseStorage implements IStorage {
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     try {
-      const usersRef = collection(adminDb, COLLECTIONS.USERS);
-      const q = query(usersRef, where("username", "==", username), limit(1));
-      const querySnapshot = await getDocs(q);
+      const querySnapshot = await adminDb.collection(COLLECTIONS.USERS)
+        .where("username", "==", username)
+        .limit(1)
+        .get();
       
       if (!querySnapshot.empty) {
         const docSnap = querySnapshot.docs[0];
@@ -117,7 +105,6 @@ export class FirebaseStorage implements IStorage {
 
   async createUser(userData: InsertUser): Promise<User> {
     try {
-      const usersRef = collection(adminDb, COLLECTIONS.USERS);
       const now = new Date();
       const userWithTimestamps = {
         ...userData,
@@ -125,7 +112,7 @@ export class FirebaseStorage implements IStorage {
         updatedAt: now,
       };
       
-      const docRef = await addDoc(usersRef, userWithTimestamps);
+      const docRef = await adminDb.collection(COLLECTIONS.USERS).add(userWithTimestamps);
       return { id: docRef.id, ...userWithTimestamps } as User;
     } catch (error) {
       console.error("Error creating user:", error);
@@ -135,9 +122,9 @@ export class FirebaseStorage implements IStorage {
 
   async getUsersByRole(role: string): Promise<User[]> {
     try {
-      const usersRef = collection(adminDb, COLLECTIONS.USERS);
-      const q = query(usersRef, where("role", "==", role));
-      const querySnapshot = await getDocs(q);
+      const querySnapshot = await adminDb.collection(COLLECTIONS.USERS)
+        .where("role", "==", role)
+        .get();
       
       return querySnapshot.docs.map(docSnap => 
         this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as User
@@ -150,8 +137,7 @@ export class FirebaseStorage implements IStorage {
 
   async getAllUsers(): Promise<User[]> {
     try {
-      const usersRef = collection(adminDb, COLLECTIONS.USERS);
-      const querySnapshot = await getDocs(usersRef);
+      const querySnapshot = await adminDb.collection(COLLECTIONS.USERS).get();
       
       return querySnapshot.docs.map(docSnap => 
         this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as User
@@ -886,6 +872,5 @@ class MemoryStorage implements IStorage {
   }
 }
 
-// Use memory storage for development to avoid Firebase permission issues
-// Use memory storage for reliable admin access, will be populated by real user registrations
-export const storage = new MemoryStorage();
+// Use Firebase storage to display real data from Firebase
+export const storage = new FirebaseStorage();
