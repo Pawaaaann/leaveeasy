@@ -613,14 +613,27 @@ export default function Login() {
                 
                 <div>
                   <Label htmlFor="department">Department</Label>
-                  <Input
-                    id="department"
-                    type="text"
-                    placeholder="Enter department"
+                  <Select
                     value={formData.department}
-                    onChange={(e) => handleInputChange("department", e.target.value)}
-                    data-testid="input-department"
-                  />
+                    onValueChange={(value) => handleInputChange("department", value)}
+                  >
+                    <SelectTrigger data-testid="select-department">
+                      <SelectValue placeholder="Select department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Computer Science">Computer Science</SelectItem>
+                      <SelectItem value="Electronics">Electronics</SelectItem>
+                      <SelectItem value="Mechanical">Mechanical</SelectItem>
+                      <SelectItem value="Civil">Civil</SelectItem>
+                      <SelectItem value="Electrical">Electrical</SelectItem>
+                      <SelectItem value="Chemical">Chemical</SelectItem>
+                      <SelectItem value="Information Technology">Information Technology</SelectItem>
+                      <SelectItem value="Biotechnology">Biotechnology</SelectItem>
+                      <SelectItem value="Mathematics">Mathematics</SelectItem>
+                      <SelectItem value="Physics">Physics</SelectItem>
+                      <SelectItem value="Chemistry">Chemistry</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 
                 <div>

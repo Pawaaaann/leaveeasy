@@ -55,6 +55,7 @@ export interface IStorage {
   // QR code operations
   createQrCode(qrCode: InsertQrCode): Promise<QrCode>;
   getQrCodeByData(qrData: string): Promise<QrCode | undefined>;
+  getQrCodeByRequestId(requestId: string): Promise<QrCode | undefined>;
   markQrCodeAsUsed(id: string, scannedBy: string): Promise<void>;
   
   // Notification operations
@@ -503,6 +504,23 @@ export class FirebaseStorage implements IStorage {
     }
   }
 
+  async getQrCodeByRequestId(requestId: string): Promise<QrCode | undefined> {
+    try {
+      const qrCodesRef = collection(adminDb, COLLECTIONS.QR_CODES);
+      const q = query(qrCodesRef, where("leaveRequestId", "==", requestId), limit(1));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        const docSnap = querySnapshot.docs[0];
+        return this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as QrCode;
+      }
+      return undefined;
+    } catch (error) {
+      console.error("Error getting QR code by request ID:", error);
+      return undefined;
+    }
+  }
+
   async markQrCodeAsUsed(id: string, scannedBy: string): Promise<void> {
     try {
       const qrCodeRef = doc(adminDb, COLLECTIONS.QR_CODES, id);
@@ -810,6 +828,11 @@ class MemoryStorage implements IStorage {
   async getQrCodeByData(qrData: string): Promise<QrCode | undefined> {
     const qrCodes = Array.from(this.qrCodes.values());
     return qrCodes.find(qrCode => qrCode.qrData === qrData);
+  }
+
+  async getQrCodeByRequestId(requestId: string): Promise<QrCode | undefined> {
+    const qrCodes = Array.from(this.qrCodes.values());
+    return qrCodes.find(qrCode => qrCode.leaveRequestId === requestId);
   }
 
   async markQrCodeAsUsed(id: string, scannedBy: string): Promise<void> {

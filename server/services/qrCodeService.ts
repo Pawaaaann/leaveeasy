@@ -13,6 +13,12 @@ export class QrCodeService {
   }
 
   static async createQrCode(leaveRequestId: string): Promise<string> {
+    // Check if QR code already exists for this request
+    const existingQrCode = await storage.getQrCodeByRequestId(leaveRequestId);
+    if (existingQrCode) {
+      return existingQrCode.qrData;
+    }
+
     const leaveRequest = await storage.getLeaveRequest(leaveRequestId);
     if (!leaveRequest) {
       throw new Error("Leave request not found");

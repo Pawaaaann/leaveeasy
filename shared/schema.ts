@@ -113,6 +113,9 @@ export const insertApprovalSchema = approvalSchema.omit({
 
 export const insertQrCodeSchema = qrCodeSchema.omit({ 
   id: true, 
+  isUsed: true,
+  scannedAt: true,
+  scannedBy: true,
   createdAt: true 
 });
 

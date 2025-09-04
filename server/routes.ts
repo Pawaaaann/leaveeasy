@@ -72,6 +72,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const userData = insertUserSchema.parse(req.body);
       
+      // Prevent admin from creating other admin accounts
+      if (userData.role === "admin") {
+        return res.status(403).json({ message: "Cannot create admin accounts. Only students can create accounts through registration." });
+      }
+      
       // Check if user already exists
       const existingUser = await storage.getUserByUsername(userData.username || userData.email?.split('@')[0] || 'user');
       if (existingUser) {
@@ -518,16 +523,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Request not approved yet" });
       }
       
-      // Generate QR code if it doesn't exist
+      // Get or create QR code for this request
+      let qrCode = await storage.getQrCodeByRequestId(requestId);
       let qrData: string;
-      try {
-        qrData = await QrCodeService.createQrCode(requestId);
-      } catch (error) {
-        console.error("QR code creation failed:", error);
-        return res.status(500).json({ message: "Failed to generate QR code" });
+      
+      if (qrCode) {
+        qrData = qrCode.qrData;
+      } else {
+        try {
+          qrData = await QrCodeService.createQrCode(requestId);
+          qrCode = await storage.getQrCodeByRequestId(requestId);
+        } catch (error) {
+          console.error("QR code creation failed:", error);
+          return res.status(500).json({ message: "Failed to generate QR code" });
+        }
       }
       
-      res.json({ qrData, request });
+      res.json({ qrData, request, ...qrCode });
     } catch (error) {
       console.error("Get QR code error:", error);
       res.status(500).json({ message: "Internal server error" });
