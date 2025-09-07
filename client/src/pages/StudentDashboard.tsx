@@ -3,11 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, CheckCircle, Clock, Home, Plus, History, LogOut } from "lucide-react";
+import { Calendar, CheckCircle, Clock, Home, Plus, History, LogOut, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import LeaveRequestForm from "@/components/LeaveRequestForm";
 import StatsCard from "@/components/StatsCard";
+import ProfileModal from "@/components/ProfileModal";
 import { Link } from "wouter";
 import type { LeaveRequest } from "@shared/schema";
 
@@ -15,6 +16,7 @@ export default function StudentDashboard() {
   const { user, logout } = useAuth();
   const [showForm, setShowForm] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { toast } = useToast();
 
   const { data: stats = {} } = useQuery({
@@ -53,14 +55,24 @@ export default function StudentDashboard() {
               Welcome, {user?.firstName || user?.username}
             </span>
           </div>
-          <Button 
-            variant="ghost" 
-            onClick={logout}
-            data-testid="button-logout"
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </Button>
+          <div className="flex items-center space-x-2">
+            <Button 
+              variant="ghost" 
+              onClick={() => setIsProfileOpen(true)}
+              data-testid="button-profile"
+            >
+              <User className="h-4 w-4 mr-2" />
+              Profile
+            </Button>
+            <Button 
+              variant="ghost" 
+              onClick={logout}
+              data-testid="button-logout"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </Button>
+          </div>
         </div>
       </nav>
 
@@ -205,6 +217,15 @@ export default function StudentDashboard() {
           </div>
         </main>
       </div>
+      
+      {/* Profile Modal */}
+      {user && (
+        <ProfileModal 
+          user={user} 
+          isOpen={isProfileOpen} 
+          onClose={() => setIsProfileOpen(false)} 
+        />
+      )}
     </div>
   );
 }

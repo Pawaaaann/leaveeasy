@@ -2,16 +2,18 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Bell, CheckSquare, BarChart3, Clock, CheckCircle, Calendar, AlertTriangle, LogOut } from "lucide-react";
+import { Bell, CheckSquare, BarChart3, Clock, CheckCircle, Calendar, AlertTriangle, LogOut, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import ApprovalCard from "@/components/ApprovalCard";
 import StatsCard from "@/components/StatsCard";
+import ProfileModal from "@/components/ProfileModal";
 import type { LeaveRequest } from "@shared/schema";
 
 export default function ApprovalDashboard() {
   const { user, logout } = useAuth();
   const [selectedView, setSelectedView] = useState("pending");
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const { toast } = useToast();
 
   const { data: stats = {} } = useQuery({
@@ -68,6 +70,14 @@ export default function ApprovalDashboard() {
               <Bell className="h-4 w-4" />
               <span>{pendingRequests.length} pending approvals</span>
             </div>
+            <Button 
+              variant="ghost" 
+              onClick={() => setIsProfileOpen(true)}
+              data-testid="button-profile"
+            >
+              <User className="h-4 w-4 mr-2" />
+              Profile
+            </Button>
             <Button 
               variant="ghost" 
               onClick={logout}
@@ -366,6 +376,15 @@ export default function ApprovalDashboard() {
           </div>
         </main>
       </div>
+      
+      {/* Profile Modal */}
+      {user && (
+        <ProfileModal 
+          user={user} 
+          isOpen={isProfileOpen} 
+          onClose={() => setIsProfileOpen(false)} 
+        />
+      )}
     </div>
   );
 }

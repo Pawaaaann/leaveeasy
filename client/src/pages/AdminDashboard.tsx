@@ -14,6 +14,7 @@ import { User, LeaveRequest, userRoles } from "@shared/schema";
 import { departments } from "@shared/constants";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import ProfileModal from "@/components/ProfileModal";
 
 type AdminView = 'dashboard' | 'users' | 'requests' | 'roles' | 'settings' | 'reports';
 
@@ -27,6 +28,7 @@ export default function AdminDashboard() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editForm, setEditForm] = useState<Partial<User>>({});
   const [addForm, setAddForm] = useState<Partial<User>>({});
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   // Fetch system data
   const { data: users, isLoading } = useQuery<User[]>({
@@ -789,6 +791,15 @@ export default function AdminDashboard() {
             <Button 
               variant="outline" 
               size="sm" 
+              onClick={() => setIsProfileOpen(true)}
+              data-testid="button-profile"
+            >
+              <Users className="h-4 w-4 mr-2" />
+              Profile
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
               onClick={logout}
               data-testid="button-logout"
             >
@@ -1026,6 +1037,15 @@ export default function AdminDashboard() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Profile Modal */}
+      {user && (
+        <ProfileModal 
+          user={user} 
+          isOpen={isProfileOpen} 
+          onClose={() => setIsProfileOpen(false)} 
+        />
+      )}
     </div>
   );
 }
