@@ -6,7 +6,6 @@ import { NotificationService } from "./services/notificationService";
 import { insertLeaveRequestSchema, insertUserSchema, type LeaveRequest, COLLECTIONS } from "@shared/schema";
 import { z } from "zod";
 import { adminDb } from "./firebaseAdmin";
-import { collection, query, where, limit, getDocs } from "firebase-admin/firestore";
 
 declare global {
   namespace Express {
@@ -242,19 +241,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const leaveRequest = await storage.createLeaveRequest(requestData);
       
-      // Create initial approval record for mentor
+      // Get the student to find their department
+      const student = await storage.getUser(req.userId!);
+      if (!student || !student.department) {
+        return res.status(400).json({ message: "Student department not found" });
+      }
+      
+      // Find the mentor for this department
+      const mentor = await storage.getMentorByDepartment(student.department);
+      if (!mentor) {
+        return res.status(400).json({ message: `No mentor found for ${student.department} department` });
+      }
+      
+      // Create initial approval record for the department mentor
       await storage.createApproval({
         leaveRequestId: leaveRequest.id,
-        approverId: "mentor-placeholder", // In real app, get from department
+        approverId: mentor.id,
         approverRole: "mentor",
         status: "pending",
       });
       
       // Notify mentor
-      const student = await storage.getUser(req.userId!);
       if (student) {
         await NotificationService.notifyApprover(
-          "mentor-placeholder",
+          mentor.id,
           leaveRequest.id,
           `${student.firstName} ${student.lastName}`,
           leaveRequest.leaveType

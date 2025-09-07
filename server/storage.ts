@@ -12,6 +12,19 @@ import {
   type InsertNotification,
 } from "@shared/schema";
 import { adminDb } from "./firebaseAdmin";
+import { 
+  collection, 
+  doc, 
+  getDoc, 
+  getDocs, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  query, 
+  where, 
+  orderBy, 
+  limit 
+} from "firebase-admin/firestore";
 // Firebase Admin SDK uses different API - methods are called directly on collections and documents
 
 export interface IStorage {
@@ -23,6 +36,7 @@ export interface IStorage {
   getAllUsers(): Promise<User[]>;
   updateUser(id: string, userData: Partial<User>): Promise<User>;
   deleteUser(id: string): Promise<void>;
+  getMentorByDepartment(department: string): Promise<User | undefined>;
   
   // Leave request operations
   getAllLeaveRequests(): Promise<LeaveRequest[]>;
@@ -185,6 +199,25 @@ export class FirebaseStorage implements IStorage {
     }
   }
 
+  async getMentorByDepartment(department: string): Promise<User | undefined> {
+    try {
+      const querySnapshot = await adminDb.collection(COLLECTIONS.USERS)
+        .where("role", "==", "mentor")
+        .where("department", "==", department)
+        .limit(1)
+        .get();
+      
+      if (!querySnapshot.empty) {
+        const doc = querySnapshot.docs[0];
+        return this.convertTimestamps({ id: doc.id, ...doc.data() }) as User;
+      }
+      return undefined;
+    } catch (error) {
+      console.error("Error getting mentor by department:", error);
+      return undefined;
+    }
+  }
+
   async deleteUser(id: string): Promise<void> {
     try {
       // First check if user exists
@@ -291,8 +324,8 @@ export class FirebaseStorage implements IStorage {
         orderBy("createdAt", "desc")
       );
       
-      // For HODs, filter by department
-      if (role === "hod") {
+      // For mentors and HODs, filter by department
+      if (role === "mentor" || role === "hod") {
         const approver = await this.getUser(approverId);
         if (approver && approver.department) {
           // Get students from the same department
