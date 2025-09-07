@@ -12,19 +12,6 @@ import {
   type InsertNotification,
 } from "@shared/schema";
 import { adminDb } from "./firebaseAdmin";
-import { 
-  collection, 
-  doc, 
-  getDoc, 
-  getDocs, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  query, 
-  where, 
-  orderBy, 
-  limit 
-} from "firebase-admin/firestore";
 // Firebase Admin SDK uses different API - methods are called directly on collections and documents
 
 export interface IStorage {
@@ -182,13 +169,12 @@ export class FirebaseStorage implements IStorage {
 
   async updateUser(id: string, userData: Partial<User>): Promise<User> {
     try {
-      const userRef = doc(adminDb, COLLECTIONS.USERS, id);
       const updateData = {
         ...userData,
         updatedAt: new Date(),
       };
       
-      await updateDoc(userRef, updateData);
+      await adminDb.collection(COLLECTIONS.USERS).doc(id).update(updateData);
       
       // Get updated user
       const updatedUser = await this.getUser(id);
@@ -238,7 +224,6 @@ export class FirebaseStorage implements IStorage {
   // Leave request operations
   async createLeaveRequest(requestData: InsertLeaveRequest): Promise<LeaveRequest> {
     try {
-      const requestsRef = collection(adminDb, COLLECTIONS.LEAVE_REQUESTS);
       const now = new Date();
       const requestWithTimestamps = {
         ...requestData,
@@ -248,7 +233,7 @@ export class FirebaseStorage implements IStorage {
         updatedAt: now,
       };
       
-      const docRef = await addDoc(requestsRef, requestWithTimestamps);
+      const docRef = await adminDb.collection(COLLECTIONS.LEAVE_REQUESTS).add(requestWithTimestamps);
       return { id: docRef.id, ...requestWithTimestamps } as LeaveRequest;
     } catch (error) {
       console.error("Error creating leave request:", error);
@@ -258,10 +243,9 @@ export class FirebaseStorage implements IStorage {
 
   async getLeaveRequest(id: string): Promise<LeaveRequest | undefined> {
     try {
-      const requestRef = doc(adminDb, COLLECTIONS.LEAVE_REQUESTS, id);
-      const requestSnap = await getDoc(requestRef);
+      const requestSnap = await adminDb.collection(COLLECTIONS.LEAVE_REQUESTS).doc(id).get();
       
-      if (requestSnap.exists()) {
+      if (requestSnap.exists) {
         return this.convertTimestamps({ id: requestSnap.id, ...requestSnap.data() }) as LeaveRequest;
       }
       return undefined;
@@ -273,13 +257,10 @@ export class FirebaseStorage implements IStorage {
 
   async getLeaveRequestsByStudent(studentId: string): Promise<LeaveRequest[]> {
     try {
-      const requestsRef = collection(adminDb, COLLECTIONS.LEAVE_REQUESTS);
-      const q = query(
-        requestsRef, 
-        where("studentId", "==", studentId),
-        orderBy("createdAt", "desc")
-      );
-      const querySnapshot = await getDocs(q);
+      const querySnapshot = await adminDb.collection(COLLECTIONS.LEAVE_REQUESTS)
+        .where("studentId", "==", studentId)
+        .orderBy("createdAt", "desc")
+        .get();
       
       return querySnapshot.docs.map(docSnap => 
         this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as LeaveRequest
@@ -292,9 +273,9 @@ export class FirebaseStorage implements IStorage {
 
   async getAllLeaveRequests(): Promise<LeaveRequest[]> {
     try {
-      const requestsRef = collection(adminDb, COLLECTIONS.LEAVE_REQUESTS);
-      const q = query(requestsRef, orderBy("createdAt", "desc"));
-      const querySnapshot = await getDocs(q);
+      const querySnapshot = await adminDb.collection(COLLECTIONS.LEAVE_REQUESTS)
+        .orderBy("createdAt", "desc")
+        .get();
       
       return querySnapshot.docs.map(docSnap => 
         this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as LeaveRequest
@@ -317,25 +298,15 @@ export class FirebaseStorage implements IStorage {
       const step = roleStepMap[role as keyof typeof roleStepMap];
       if (!step) return [];
 
-      const requestsRef = collection(adminDb, COLLECTIONS.LEAVE_REQUESTS);
-      let q = query(
-        requestsRef,
-        where("currentApprovalStep", "==", step),
-        orderBy("createdAt", "desc")
-      );
-      
       // For mentors and HODs, filter by department
       if (role === "mentor" || role === "hod") {
         const approver = await this.getUser(approverId);
         if (approver && approver.department) {
           // Get students from the same department
-          const studentsRef = collection(adminDb, COLLECTIONS.USERS);
-          const studentsQuery = query(
-            studentsRef,
-            where("role", "==", "student"),
-            where("department", "==", approver.department)
-          );
-          const studentsSnapshot = await getDocs(studentsQuery);
+          const studentsSnapshot = await adminDb.collection(COLLECTIONS.USERS)
+            .where("role", "==", "student")
+            .where("department", "==", approver.department)
+            .get();
           const studentIds = studentsSnapshot.docs.map(doc => doc.id);
           
           if (studentIds.length === 0) return [];
@@ -343,13 +314,11 @@ export class FirebaseStorage implements IStorage {
           // Filter requests by students in this department
           const departmentRequests: LeaveRequest[] = [];
           for (const studentId of studentIds) {
-            const studentRequestsQuery = query(
-              requestsRef,
-              where("currentApprovalStep", "==", step),
-              where("studentId", "==", studentId),
-              orderBy("createdAt", "desc")
-            );
-            const studentRequestsSnapshot = await getDocs(studentRequestsQuery);
+            const studentRequestsSnapshot = await adminDb.collection(COLLECTIONS.LEAVE_REQUESTS)
+              .where("currentApprovalStep", "==", step)
+              .where("studentId", "==", studentId)
+              .orderBy("createdAt", "desc")
+              .get();
             departmentRequests.push(
               ...studentRequestsSnapshot.docs.map(docSnap => 
                 this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as LeaveRequest
@@ -362,7 +331,10 @@ export class FirebaseStorage implements IStorage {
         }
       }
       
-      const querySnapshot = await getDocs(q);
+      const querySnapshot = await adminDb.collection(COLLECTIONS.LEAVE_REQUESTS)
+        .where("currentApprovalStep", "==", step)
+        .orderBy("createdAt", "desc")
+        .get();
       
       return querySnapshot.docs.map(docSnap => 
         this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as LeaveRequest
@@ -375,8 +347,7 @@ export class FirebaseStorage implements IStorage {
 
   async updateLeaveRequestStatus(id: string, status: string, currentStep: number): Promise<void> {
     try {
-      const requestRef = doc(adminDb, COLLECTIONS.LEAVE_REQUESTS, id);
-      await updateDoc(requestRef, {
+      await adminDb.collection(COLLECTIONS.LEAVE_REQUESTS).doc(id).update({
         status,
         currentApprovalStep: currentStep,
         updatedAt: new Date(),
