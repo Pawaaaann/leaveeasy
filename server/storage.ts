@@ -103,6 +103,24 @@ export class FirebaseStorage implements IStorage {
     }
   }
 
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    try {
+      const querySnapshot = await adminDb.collection(COLLECTIONS.USERS)
+        .where("email", "==", email)
+        .limit(1)
+        .get();
+      
+      if (!querySnapshot.empty) {
+        const docSnap = querySnapshot.docs[0];
+        return this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as User;
+      }
+      return undefined;
+    } catch (error) {
+      console.error("Error getting user by email:", error);
+      return undefined;
+    }
+  }
+
   async createUser(userData: InsertUser): Promise<User> {
     try {
       const now = new Date();

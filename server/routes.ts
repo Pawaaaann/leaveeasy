@@ -76,10 +76,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Cannot create admin accounts. Only students can create accounts through registration." });
       }
       
-      // Check if user already exists
+      // Check if user already exists by username
       const existingUser = await storage.getUserByUsername(userData.username || userData.email?.split('@')[0] || 'user');
       if (existingUser) {
-        return res.status(400).json({ message: "User with this email already exists" });
+        return res.status(400).json({ message: "User with this username already exists" });
+      }
+
+      // Check if user already exists by email
+      if (userData.email) {
+        const existingEmailUser = await storage.getUserByEmail(userData.email);
+        if (existingEmailUser) {
+          return res.status(400).json({ message: "User with this email already exists" });
+        }
       }
       
       // Generate username from email if not provided
