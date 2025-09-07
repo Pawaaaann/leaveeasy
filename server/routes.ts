@@ -39,11 +39,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userData = insertUserSchema.parse(req.body);
       console.log("Validated user data:", JSON.stringify(userData, null, 2));
       
-      // Check if user already exists
+      // Check if user already exists by username
       const existingUser = await storage.getUserByUsername(userData.username);
       if (existingUser) {
         console.log("User already exists:", existingUser.username);
         return res.json(existingUser); // Return existing user
+      }
+
+      // Check if user already exists by email
+      if (userData.email) {
+        const existingEmailUser = await storage.getUserByEmail(userData.email);
+        if (existingEmailUser) {
+          console.log("User with email already exists:", userData.email);
+          return res.json(existingEmailUser); // Return existing user
+        }
       }
       
       // Create user profile in storage when they register/login through Firebase
@@ -191,11 +200,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const { id } = req.params;
+      if (!id) {
+        return res.status(400).json({ message: "User ID is required" });
+      }
+
       await storage.deleteUser(id);
       res.json({ message: "User deleted successfully" });
     } catch (error) {
       console.error("Delete user error:", error);
-      res.status(500).json({ message: "Internal server error" });
+      if (error instanceof Error && error.message.includes("not found")) {
+        res.status(404).json({ message: "User not found" });
+      } else {
+        res.status(500).json({ message: "Failed to delete user. Please try again." });
+      }
     }
   });
 

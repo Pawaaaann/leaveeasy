@@ -187,8 +187,15 @@ export class FirebaseStorage implements IStorage {
 
   async deleteUser(id: string): Promise<void> {
     try {
-      const userRef = doc(adminDb, COLLECTIONS.USERS, id);
-      await deleteDoc(userRef);
+      // First check if user exists
+      const userDoc = await adminDb.collection(COLLECTIONS.USERS).doc(id).get();
+      if (!userDoc.exists) {
+        throw new Error(`User with ID ${id} not found`);
+      }
+
+      // Delete the user document
+      await adminDb.collection(COLLECTIONS.USERS).doc(id).delete();
+      console.log(`Successfully deleted user with ID: ${id}`);
     } catch (error) {
       console.error("Error deleting user:", error);
       throw error;
