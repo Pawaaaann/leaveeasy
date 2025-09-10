@@ -15,13 +15,15 @@ try {
 
   // Remove any surrounding quotes that might have been added during storage
   privateKey = privateKey.replace(/^["'](.*)["']$/, '$1');
+  
+  // Clean up any extra whitespace
+  privateKey = privateKey.trim();
 
   // Ensure the private key has the proper PEM format
   if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+    console.error('Invalid private key format. Expected format: -----BEGIN PRIVATE KEY-----...-----END PRIVATE KEY-----');
     throw new Error('Private key is not in proper PEM format. Please ensure it starts with -----BEGIN PRIVATE KEY----- and ends with -----END PRIVATE KEY-----');
   }
-
-  privateKey = privateKey.trim();
 
   const serviceAccount = {
     project_id: process.env.FIREBASE_PROJECT_ID!,

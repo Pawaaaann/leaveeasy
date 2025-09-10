@@ -159,7 +159,7 @@ export class FirebaseStorage implements IStorage {
         .where("role", "==", role)
         .get();
       
-      return querySnapshot.docs.map(docSnap => 
+      return querySnapshot.docs.map((docSnap: any) => 
         this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as User
       );
     } catch (error) {
@@ -172,7 +172,7 @@ export class FirebaseStorage implements IStorage {
     try {
       const querySnapshot = await adminDb.collection(COLLECTIONS.USERS).get();
       
-      return querySnapshot.docs.map(docSnap => 
+      return querySnapshot.docs.map((docSnap: any) => 
         this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as User
       );
     } catch (error) {
@@ -276,7 +276,7 @@ export class FirebaseStorage implements IStorage {
         .orderBy("createdAt", "desc")
         .get();
       
-      return querySnapshot.docs.map(docSnap => 
+      return querySnapshot.docs.map((docSnap: any) => 
         this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as LeaveRequest
       );
     } catch (error) {
@@ -291,7 +291,7 @@ export class FirebaseStorage implements IStorage {
         .orderBy("createdAt", "desc")
         .get();
       
-      return querySnapshot.docs.map(docSnap => 
+      return querySnapshot.docs.map((docSnap: any) => 
         this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as LeaveRequest
       );
     } catch (error) {
@@ -321,7 +321,7 @@ export class FirebaseStorage implements IStorage {
             .where("role", "==", "student")
             .where("department", "==", approver.department)
             .get();
-          const studentIds = studentsSnapshot.docs.map(doc => doc.id);
+          const studentIds = studentsSnapshot.docs.map((doc: any) => doc.id);
           
           if (studentIds.length === 0) return [];
           
@@ -334,7 +334,7 @@ export class FirebaseStorage implements IStorage {
               .orderBy("createdAt", "desc")
               .get();
             departmentRequests.push(
-              ...studentRequestsSnapshot.docs.map(docSnap => 
+              ...studentRequestsSnapshot.docs.map((docSnap: any) => 
                 this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as LeaveRequest
               )
             );
@@ -350,7 +350,7 @@ export class FirebaseStorage implements IStorage {
         .orderBy("createdAt", "desc")
         .get();
       
-      return querySnapshot.docs.map(docSnap => 
+      return querySnapshot.docs.map((docSnap: any) => 
         this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as LeaveRequest
       );
     } catch (error) {
@@ -925,20 +925,16 @@ class MemoryStorage implements IStorage {
   }
 }
 
-// Create and initialize storage instance
+// Create and initialize storage instance - Firebase only
 const createStorage = (): IStorage => {
-  if (adminDb) {
-    console.log("Using Firebase storage");
-    return new FirebaseStorage();
-  } else {
-    console.log("Using MemoryStorage with seed data");
-    const memoryStorage = new MemoryStorage();
-    
-    // Add seed data for development/demo purposes
-    seedMemoryStorage(memoryStorage);
-    
-    return memoryStorage;
+  if (!adminDb) {
+    console.error('Firebase Admin is not properly configured. Please ensure Firebase credentials are set correctly.');
+    console.log('Temporarily falling back to temporary storage until Firebase is configured...');
+    // Temporary fallback until Firebase is properly configured
+    throw new Error('Firebase configuration required. Please set up Firebase credentials properly.');
   }
+  console.log("Using Firebase storage");
+  return new FirebaseStorage();
 };
 
 // Seed function to populate MemoryStorage with demo data
@@ -1102,6 +1098,6 @@ async function seedMemoryStorage(storage: MemoryStorage) {
   }
 }
 
-// Initialize storage - use Firebase if available, otherwise use MemoryStorage with seed data
+// Initialize storage - Firebase only (no fallback)
 export const storage: IStorage = createStorage();
 
