@@ -90,33 +90,55 @@ export function useAuth() {
   const login = (user: User) => {
     console.log("Manual login called with user:", user.username, "role:", user.role);
     localStorage.setItem("userProfile", JSON.stringify(user));
-    setAuthState({
+    
+    // Use React's state updater to ensure immediate update
+    setAuthState(prevState => ({
       user,
       isLoading: false,
       isAuthenticated: true,
-    });
+    }));
+    
     console.log("Auth state updated after manual login");
+    
+    // Force a re-render by triggering a state change
+    setTimeout(() => {
+      setAuthState(prevState => ({ ...prevState }));
+    }, 0);
   };
 
   const logout = async () => {
     try {
-      // Clear local storage first
-      localStorage.removeItem("userProfile");
-      localStorage.removeItem("demoUser");
-      localStorage.removeItem("registeredUsers");
-      
-      // Update auth state
+      // Update auth state first to immediately trigger re-render
       setAuthState({
         user: null,
         isLoading: false,
         isAuthenticated: false,
       });
       
-      // Try to sign out from Firebase if available
+      // Clear local storage
+      localStorage.removeItem("userProfile");
+      localStorage.removeItem("demoUser");
+      localStorage.removeItem("registeredUsers");
+      
+      // Try to sign out from Firebase
       await signOut(auth);
+      
+      // Force another state update to ensure the change is captured
+      setTimeout(() => {
+        setAuthState({
+          user: null,
+          isLoading: false,
+          isAuthenticated: false,
+        });
+      }, 0);
     } catch (error) {
       console.error("Logout error:", error);
-      // Even if Firebase signout fails, we've already cleared local state
+      // Ensure state is cleared even if Firebase signout fails
+      setAuthState({
+        user: null,
+        isLoading: false,
+        isAuthenticated: false,
+      });
     }
   };
 
