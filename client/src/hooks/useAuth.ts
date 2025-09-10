@@ -18,35 +18,47 @@ export function useAuth() {
   });
 
   useEffect(() => {
-    // Check for stored user profile immediately for fast loading
-    const checkStoredUser = () => {
+    let isMounted = true;
+
+    const initializeAuth = async () => {
+      // Check for stored user profile immediately
       const storedUser = localStorage.getItem("userProfile");
       if (storedUser) {
         try {
           const userProfile = JSON.parse(storedUser);
-          setAuthState({
-            user: userProfile,
-            isLoading: false,
-            isAuthenticated: true,
-          });
-          return true;
+          if (isMounted) {
+            setAuthState({
+              user: userProfile,
+              isLoading: false,
+              isAuthenticated: true,
+            });
+            return;
+          }
         } catch (error) {
           console.error("Failed to parse stored user profile:", error);
           localStorage.removeItem("userProfile");
         }
       }
-      return false;
+
+      // If no stored user, set loading to false
+      if (isMounted) {
+        setAuthState({
+          user: null,
+          isLoading: false,
+          isAuthenticated: false,
+        });
+      }
     };
 
-    // Try to load stored user first for immediate feedback
-    if (checkStoredUser()) {
-      return;
-    }
+    // Initialize auth state immediately
+    initializeAuth();
 
-    // Set up Firebase auth listener
+    // Set up Firebase auth listener for future changes
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!isMounted) return;
+
       if (firebaseUser) {
-        // Get user role and details from Firestore
+        // If Firebase user exists, check if we have local profile
         const storedUser = localStorage.getItem("userProfile");
         if (storedUser) {
           try {
@@ -65,16 +77,11 @@ export function useAuth() {
               isAuthenticated: false,
             });
           }
-        } else {
-          setAuthState({
-            user: null,
-            isLoading: false,
-            isAuthenticated: false,
-          });
         }
       } else {
-        // Only clear state if no stored user exists (for local development)
-        if (!localStorage.getItem("userProfile")) {
+        // Firebase user logged out, but preserve local session for development
+        const storedUser = localStorage.getItem("userProfile");
+        if (!storedUser) {
           setAuthState({
             user: null,
             isLoading: false,
@@ -84,56 +91,50 @@ export function useAuth() {
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
   }, []);
 
   const login = (user: User) => {
     console.log("Manual login called with user:", user.username, "role:", user.role);
+    
+    // Store in localStorage first
     localStorage.setItem("userProfile", JSON.stringify(user));
     
-    // Use React's state updater to ensure immediate update
-    setAuthState(prevState => ({
+    // Update state immediately and synchronously
+    setAuthState({
       user,
       isLoading: false,
       isAuthenticated: true,
-    }));
+    });
     
     console.log("Auth state updated after manual login");
-    
-    // Force a re-render by triggering a state change
-    setTimeout(() => {
-      setAuthState(prevState => ({ ...prevState }));
-    }, 0);
   };
 
   const logout = async () => {
     try {
-      // Update auth state first to immediately trigger re-render
+      // Clear local storage first
+      localStorage.removeItem("userProfile");
+      localStorage.removeItem("demoUser");
+      localStorage.removeItem("registeredUsers");
+      
+      // Update auth state immediately
       setAuthState({
         user: null,
         isLoading: false,
         isAuthenticated: false,
       });
       
-      // Clear local storage
-      localStorage.removeItem("userProfile");
-      localStorage.removeItem("demoUser");
-      localStorage.removeItem("registeredUsers");
+      // Try to sign out from Firebase (don't wait for it)
+      signOut(auth).catch(error => {
+        console.error("Firebase signout error:", error);
+      });
       
-      // Try to sign out from Firebase
-      await signOut(auth);
-      
-      // Force another state update to ensure the change is captured
-      setTimeout(() => {
-        setAuthState({
-          user: null,
-          isLoading: false,
-          isAuthenticated: false,
-        });
-      }, 0);
     } catch (error) {
       console.error("Logout error:", error);
-      // Ensure state is cleared even if Firebase signout fails
+      // Ensure state is cleared even if something fails
       setAuthState({
         user: null,
         isLoading: false,

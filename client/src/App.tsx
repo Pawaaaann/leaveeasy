@@ -17,9 +17,10 @@ import NotFound from "@/pages/not-found";
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
-  // Add debug logging to track state changes
+  // Debug logging
   console.log("Router render - isAuthenticated:", isAuthenticated, "isLoading:", isLoading, "user:", user?.username);
 
+  // Show loading state only when explicitly loading
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -31,35 +32,35 @@ function Router() {
     );
   }
 
+  // If not authenticated or no user data, show login
   if (!isAuthenticated || !user) {
-    return <Login key="login" />;
+    return <Login />;
   }
 
-  // Render based on user role
-  if (user.role === "student") {
-    return <StudentDashboard key={`student-${user.id}`} />;
+  // Render appropriate dashboard based on user role
+  switch (user.role) {
+    case "student":
+      return <StudentDashboard />;
+    case "admin":
+      return <AdminDashboard />;
+    case "mentor":
+    case "hod":
+    case "principal":
+    case "warden":
+    case "parent":
+      return <ApprovalDashboard />;
+    case "security":
+      return <QRScanner />;
+    default:
+      // Fallback for unknown roles or special routes
+      return (
+        <Switch>
+          <Route path="/qr/:requestId" component={QRCodePage} />
+          <Route path="/workflow/:requestId" component={WorkflowTracker} />
+          <Route component={NotFound} />
+        </Switch>
+      );
   }
-  
-  if (user.role === "admin") {
-    return <AdminDashboard key={`admin-${user.id}`} />;
-  }
-  
-  if (["mentor", "hod", "principal", "warden", "parent"].includes(user.role)) {
-    return <ApprovalDashboard key={`approval-${user.id}`} />;
-  }
-  
-  if (user.role === "security") {
-    return <QRScanner key={`security-${user.id}`} />;
-  }
-
-  // Fallback for unknown roles
-  return (
-    <Switch>
-      <Route path="/qr/:requestId" component={QRCodePage} />
-      <Route path="/workflow/:requestId" component={WorkflowTracker} />
-      <Route component={NotFound} />
-    </Switch>
-  );
 }
 
 function App() {
