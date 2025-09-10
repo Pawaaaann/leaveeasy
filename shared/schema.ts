@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // Enums as const arrays for Firebase
 export const userRoles = [
-  "student", "mentor", "hod", "principal", "warden", "security", "admin"
+  "student", "mentor", "hod", "principal", "warden", "parent", "security", "admin"
 ] as const;
 
 export const leaveTypes = [
