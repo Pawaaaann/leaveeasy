@@ -3,7 +3,7 @@ export function isUnauthorizedError(error: Error): boolean {
 }
 
 export function getAuthHeaders(user: any): Record<string, string> {
-  if (!user) return {};
+  if (!user || !user.id || !user.role) return {};
   
   return {
     "x-user-id": user.id,

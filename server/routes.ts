@@ -81,7 +81,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Prevent admin from creating other admin accounts
       if (userData.role === "admin") {
-        return res.status(403).json({ message: "Cannot create admin accounts. Only students can create accounts through registration." });
+        return res.status(403).json({ message: "Cannot create admin accounts through admin panel. Admin accounts require special setup." });
       }
       
       // Check if user already exists by username
