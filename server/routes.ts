@@ -649,9 +649,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           r.createdAt && new Date(r.createdAt) >= todayStart
         ).length;
         
-        // Active requests (pending or in progress)
+        // Active requests (not yet approved or rejected)
         const activeRequests = allRequests.filter(r => 
-          r.status === 'pending' || r.status === 'in_progress'
+          r.status !== 'approved' && r.status !== 'rejected'
         ).length;
         
         // Recent user registrations
@@ -674,7 +674,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
             pending: requestsByStatus.pending || 0,
             approved: requestsByStatus.approved || 0,
             rejected: requestsByStatus.rejected || 0,
-            in_progress: requestsByStatus.in_progress || 0,
+            mentor_approved: requestsByStatus.mentor_approved || 0,
+            parent_confirmed: requestsByStatus.parent_confirmed || 0,
+            hod_approved: requestsByStatus.hod_approved || 0,
+            principal_approved: requestsByStatus.principal_approved || 0,
+            warden_approved: requestsByStatus.warden_approved || 0,
           },
           
           // Time-based stats
