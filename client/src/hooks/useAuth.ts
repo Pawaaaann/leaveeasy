@@ -191,12 +191,28 @@ export function useAuth() {
     // Store the new session
     localStorage.setItem("userSession", JSON.stringify(session));
     
+    console.log("About to update auth state for user:", user.username);
+    
     // Update state immediately and synchronously
     setAuthState({
       user,
       isLoading: false,
       isAuthenticated: true,
     });
+    
+    // Add a timeout to ensure the state update has taken effect
+    setTimeout(() => {
+      console.log("State should be updated now - forcing a check");
+      // Force a state update to ensure re-render
+      setAuthState(prevState => {
+        console.log("Previous state:", prevState);
+        return {
+          user,
+          isLoading: false,
+          isAuthenticated: true,
+        };
+      });
+    }, 0);
     
     console.log("New session created with ID:", sessionId, "expires at:", new Date(session.expiresAt));
   };
