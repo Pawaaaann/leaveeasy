@@ -488,6 +488,10 @@ export default function Login() {
                   </SelectTrigger>
                   <SelectContent>
                     {userRoles.filter(role => {
+                      // Remove parent role - parents don't need access
+                      if (role === "parent") {
+                        return false;
+                      }
                       // For signup, only show student and admin roles
                       if (isSignUp && role !== "student" && role !== "admin") {
                         return false;

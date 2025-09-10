@@ -10,7 +10,6 @@ try {
   console.log('Attempting to parse Firebase private key...');
   console.log('Project ID:', process.env.FIREBASE_PROJECT_ID);
   console.log('Client Email:', process.env.FIREBASE_CLIENT_EMAIL);
-  console.log('Private key starts with:', privateKey ? privateKey.substring(0, 50) + '...' : 'undefined');
 
   // Handle different possible formats of the private key
   // First handle escaped newlines \\n

@@ -170,11 +170,15 @@ export class FirebaseStorage implements IStorage {
 
   async getAllUsers(): Promise<User[]> {
     try {
+      console.log("Attempting to fetch all users from Firebase...");
       const querySnapshot = await adminDb.collection(COLLECTIONS.USERS).get();
+      console.log("Successfully fetched users, count:", querySnapshot.docs.length);
       
-      return querySnapshot.docs.map((docSnap: any) => 
+      const users = querySnapshot.docs.map((docSnap: any) => 
         this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as User
       );
+      console.log("Processed users:", users.length);
+      return users;
     } catch (error) {
       console.error("Error getting all users:", error);
       return [];
