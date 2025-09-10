@@ -12,12 +12,26 @@ import {
   type InsertNotification,
 } from "@shared/schema";
 import { adminDb } from "./firebaseAdmin";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  limit
+} from "firebase/firestore";
 // Firebase Admin SDK uses different API - methods are called directly on collections and documents
 
 export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   getUsersByRole(role: string): Promise<User[]>;
   getAllUsers(): Promise<User[]>;
@@ -651,6 +665,11 @@ class MemoryStorage implements IStorage {
     return users.find(user => user.username === username);
   }
 
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const users = Array.from(this.users.values());
+    return users.find(user => user.email === email);
+  }
+
   async createUser(userData: InsertUser): Promise<User> {
     const id = this.generateId();
     const now = new Date();
@@ -685,6 +704,11 @@ class MemoryStorage implements IStorage {
     };
     this.users.set(id, updatedUser);
     return updatedUser;
+  }
+
+  async getMentorByDepartment(department: string): Promise<User | undefined> {
+    const users = Array.from(this.users.values());
+    return users.find(user => user.role === "mentor" && user.department === department);
   }
 
   async deleteUser(id: string): Promise<void> {
@@ -901,5 +925,6 @@ class MemoryStorage implements IStorage {
   }
 }
 
-// Use Firebase storage to display real data from Firebase
-export const storage = new FirebaseStorage();
+// Initialize storage - use Firebase if available, otherwise use MemoryStorage
+export const storage: IStorage = adminDb ? new FirebaseStorage() : new MemoryStorage();
+
