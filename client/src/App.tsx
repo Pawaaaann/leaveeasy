@@ -17,6 +17,8 @@ import NotFound from "@/pages/not-found";
 function Router() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
+  // Add debug logging to track state changes
+  console.log("Router render - isAuthenticated:", isAuthenticated, "isLoading:", isLoading, "user:", user?.username);
 
   if (isLoading) {
     return (
@@ -30,24 +32,24 @@ function Router() {
   }
 
   if (!isAuthenticated || !user) {
-    return <Login />;
+    return <Login key="login" />;
   }
 
   // Render based on user role
   if (user.role === "student") {
-    return <StudentDashboard />;
+    return <StudentDashboard key={`student-${user.id}`} />;
   }
   
   if (user.role === "admin") {
-    return <AdminDashboard />;
+    return <AdminDashboard key={`admin-${user.id}`} />;
   }
   
   if (["mentor", "hod", "principal", "warden", "parent"].includes(user.role)) {
-    return <ApprovalDashboard />;
+    return <ApprovalDashboard key={`approval-${user.id}`} />;
   }
   
   if (user.role === "security") {
-    return <QRScanner />;
+    return <QRScanner key={`security-${user.id}`} />;
   }
 
   // Fallback for unknown roles
