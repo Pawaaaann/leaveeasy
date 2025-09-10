@@ -8,6 +8,23 @@ async function throwIfResNotOk(res: Response) {
 }
 
 function getAuthHeaders(): Record<string, string> {
+  // Check the new session format first
+  const userSession = localStorage.getItem("userSession");
+  if (userSession) {
+    try {
+      const session = JSON.parse(userSession);
+      if (session.user && session.user.id && session.user.role) {
+        return {
+          "x-user-id": session.user.id,
+          "x-user-role": session.user.role,
+        };
+      }
+    } catch (error) {
+      console.error("Failed to parse user session for auth headers:", error);
+    }
+  }
+  
+  // Fallback to old format for compatibility
   const userProfile = localStorage.getItem("userProfile");
   if (userProfile) {
     try {
@@ -22,6 +39,7 @@ function getAuthHeaders(): Record<string, string> {
       console.error("Failed to parse user profile for auth headers:", error);
     }
   }
+  
   return {};
 }
 
