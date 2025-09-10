@@ -181,6 +181,32 @@ export class FirebaseStorage implements IStorage {
       return users;
     } catch (error) {
       console.error("Error getting all users:", error);
+      
+      // Enhanced error handling for gRPC issues
+      if (error instanceof Error && (
+        error.message.includes('DECODER routines::unsupported') ||
+        error.message.includes('Getting metadata from plugin failed') ||
+        error.message.includes('UNKNOWN') ||
+        error.message.includes('gRPC')
+      )) {
+        console.log("Detected gRPC connection issue. Retrying with different approach...");
+        try {
+          // Try alternative approach for fetching users
+          const usersRef = adminDb.collection(COLLECTIONS.USERS);
+          const snapshot = await usersRef.get();
+          const users = snapshot.docs.map((docSnap: any) => 
+            this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as User
+          );
+          
+          console.log(`Retry successful - fetched ${users.length} users`);
+          return users;
+        } catch (retryError) {
+          console.error("Retry failed:", retryError);
+          console.log("Returning empty array to prevent admin panel crash");
+          return [];
+        }
+      }
+      
       return [];
     }
   }

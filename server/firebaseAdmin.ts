@@ -44,15 +44,22 @@ try {
     private_key: privateKey,
   } as ServiceAccount;
 
-  // Initialize Firebase Admin app
+  // Initialize Firebase Admin app with additional settings to handle gRPC issues
   const app = initializeApp({
     credential: cert(serviceAccount),
     projectId: process.env.FIREBASE_PROJECT_ID,
   });
 
-  // Get Firestore instance  
+  // Get Firestore instance with settings to handle connection issues
   adminDb = getFirestore(app);
-  console.log('Firebase Admin initialized successfully');
+  
+  // Configure Firestore settings to handle gRPC connectivity issues
+  adminDb.settings({
+    ignoreUndefinedProperties: true,
+    preferRest: true, // Use REST API instead of gRPC to avoid connection issues
+  });
+  
+  console.log('Firebase Admin initialized successfully with REST preference');
 
 } catch (error) {
   console.error('Failed to initialize Firebase Admin:', error);
