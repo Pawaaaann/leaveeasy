@@ -673,16 +673,530 @@ export class FirebaseStorage implements IStorage {
   }
 }
 
-// Create and initialize storage instance - Firebase only
+// In-memory storage implementation as fallback
+class MemoryStorage implements IStorage {
+  private users: Map<string, User> = new Map();
+  private leaveRequests: Map<string, LeaveRequest> = new Map();
+  private approvals: Map<string, Approval> = new Map();
+  private qrCodes: Map<string, QrCode> = new Map();
+  private notifications: Map<string, Notification> = new Map();
+
+  private generateId(): string {
+    return Math.random().toString(36).substr(2, 9);
+  }
+
+  // User operations
+  async getUser(id: string): Promise<User | undefined> {
+    return this.users.get(id);
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    for (const user of Array.from(this.users.values())) {
+      if (user.username === username) return user;
+    }
+    return undefined;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    for (const user of Array.from(this.users.values())) {
+      if (user.email === email) return user;
+    }
+    return undefined;
+  }
+
+  async createUser(userData: InsertUser): Promise<User> {
+    const id = this.generateId();
+    const now = new Date();
+    const user: User = {
+      id,
+      ...userData,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.users.set(id, user);
+    console.log(`Created user in memory storage: ${user.username} (${user.role})`);
+    return user;
+  }
+
+  async getUsersByRole(role: string): Promise<User[]> {
+    return Array.from(this.users.values()).filter(user => user.role === role);
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    const users = Array.from(this.users.values());
+    console.log(`Memory storage: returning ${users.length} users`);
+    return users;
+  }
+
+  async updateUser(id: string, userData: Partial<User>): Promise<User> {
+    const existingUser = this.users.get(id);
+    if (!existingUser) throw new Error('User not found');
+    
+    const updatedUser: User = {
+      ...existingUser,
+      ...userData,
+      id,
+      updatedAt: new Date(),
+    };
+    this.users.set(id, updatedUser);
+    return updatedUser;
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    this.users.delete(id);
+  }
+
+  async getMentorByDepartment(department: string): Promise<User | undefined> {
+    for (const user of Array.from(this.users.values())) {
+      if (user.role === 'mentor' && user.department === department) return user;
+    }
+    return undefined;
+  }
+
+  // Leave request operations - basic implementation
+  async getAllLeaveRequests(): Promise<LeaveRequest[]> {
+    return Array.from(this.leaveRequests.values());
+  }
+
+  async createLeaveRequest(request: InsertLeaveRequest): Promise<LeaveRequest> {
+    const id = this.generateId();
+    const now = new Date();
+    const leaveRequest: LeaveRequest = {
+      id,
+      ...request,
+      status: 'pending',
+      currentApprovalStep: 0,
+      createdAt: now,
+      updatedAt: now,
+    };
+    this.leaveRequests.set(id, leaveRequest);
+    return leaveRequest;
+  }
+
+  async getLeaveRequest(id: string): Promise<LeaveRequest | undefined> {
+    return this.leaveRequests.get(id);
+  }
+
+  async getLeaveRequestsByStudent(studentId: string): Promise<LeaveRequest[]> {
+    return Array.from(this.leaveRequests.values()).filter(req => req.studentId === studentId);
+  }
+
+  async getPendingRequestsByApprover(approverId: string, role: string): Promise<LeaveRequest[]> {
+    return Array.from(this.leaveRequests.values()).filter(req => 
+      req.status === 'pending'
+    );
+  }
+
+  async getApprovedRequestsByApprover(approverId: string, role: string): Promise<LeaveRequest[]> {
+    return Array.from(this.leaveRequests.values()).filter(req => 
+      req.status === 'approved'
+    );
+  }
+
+  async updateLeaveRequestStatus(id: string, status: string, currentStep: number): Promise<void> {
+    const request = this.leaveRequests.get(id);
+    if (request) {
+      request.status = status as any;
+      request.currentApprovalStep = currentStep;
+      request.updatedAt = new Date();
+    }
+  }
+
+  async getOverdueReturns(): Promise<LeaveRequest[]> {
+    const now = new Date();
+    return Array.from(this.leaveRequests.values()).filter(req => 
+      req.status === 'approved' && req.toDate && req.toDate < now
+    );
+  }
+
+  // Approval operations - basic implementation
+  async createApproval(approval: InsertApproval): Promise<Approval> {
+    const id = this.generateId();
+    const now = new Date();
+    const newApproval: Approval = {
+      id,
+      ...approval,
+      createdAt: now,
+    };
+    this.approvals.set(id, newApproval);
+    return newApproval;
+  }
+
+  async getApprovalsByRequest(requestId: string): Promise<Approval[]> {
+    return Array.from(this.approvals.values()).filter(approval => approval.leaveRequestId === requestId);
+  }
+
+  async getApprovalsByApprover(approverId: string, role: string): Promise<Approval[]> {
+    return Array.from(this.approvals.values()).filter(approval => 
+      approval.approverId === approverId && approval.approverRole === role
+    );
+  }
+
+  async updateApprovalStatus(id: string, status: string, comments?: string): Promise<void> {
+    const approval = this.approvals.get(id);
+    if (approval) {
+      approval.status = status as any;
+      if (comments) approval.comments = comments;
+    }
+  }
+
+  // QR code operations - basic implementation
+  async createQrCode(qrCode: InsertQrCode): Promise<QrCode> {
+    const id = this.generateId();
+    const now = new Date();
+    const newQrCode: QrCode = {
+      id,
+      ...qrCode,
+      isUsed: false,
+      createdAt: now,
+    };
+    this.qrCodes.set(id, newQrCode);
+    return newQrCode;
+  }
+
+  async getQrCodeByData(qrData: string): Promise<QrCode | undefined> {
+    for (const qrCode of Array.from(this.qrCodes.values())) {
+      if (qrCode.qrData === qrData) return qrCode;
+    }
+    return undefined;
+  }
+
+  async getQrCodeByRequestId(requestId: string): Promise<QrCode | undefined> {
+    for (const qrCode of Array.from(this.qrCodes.values())) {
+      if (qrCode.leaveRequestId === requestId) return qrCode;
+    }
+    return undefined;
+  }
+
+  async markQrCodeAsUsed(id: string, scannedBy: string): Promise<void> {
+    const qrCode = this.qrCodes.get(id);
+    if (qrCode) {
+      qrCode.isUsed = true;
+      qrCode.scannedBy = scannedBy;
+      qrCode.scannedAt = new Date();
+    }
+  }
+
+  // Notification operations - basic implementation
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const id = this.generateId();
+    const now = new Date();
+    const newNotification: Notification = {
+      id,
+      ...notification,
+      sent: false,
+      createdAt: now,
+    };
+    this.notifications.set(id, newNotification);
+    return newNotification;
+  }
+
+  async getPendingNotifications(): Promise<Notification[]> {
+    return Array.from(this.notifications.values()).filter(notif => !notif.sent);
+  }
+
+  async markNotificationAsSent(id: string): Promise<void> {
+    const notification = this.notifications.get(id);
+    if (notification) {
+      notification.sent = true;
+      notification.sentAt = new Date();
+    }
+  }
+
+  async clearAllData(): Promise<void> {
+    this.users.clear();
+    this.leaveRequests.clear();
+    this.approvals.clear();
+    this.qrCodes.clear();
+    this.notifications.clear();
+  }
+}
+
+// Hybrid storage wrapper that tries Firebase first, falls back to memory
+class HybridStorage implements IStorage {
+  private firebaseStorage: FirebaseStorage;
+  private memoryStorage: MemoryStorage;
+  private useMemoryFallback = false;
+
+  constructor() {
+    this.firebaseStorage = new FirebaseStorage();
+    this.memoryStorage = new MemoryStorage();
+  }
+
+  private async tryFirebaseOrFallback<T>(
+    firebaseOp: () => Promise<T>,
+    memoryOp: () => Promise<T>,
+    operationName: string
+  ): Promise<T> {
+    if (this.useMemoryFallback) {
+      return memoryOp();
+    }
+
+    try {
+      const result = await firebaseOp();
+      return result;
+    } catch (error) {
+      if (error instanceof Error && (
+        error.message.includes('DECODER routines::unsupported') ||
+        error.message.includes('Getting metadata from plugin failed') ||
+        error.message.includes('UNKNOWN') ||
+        error.message.includes('gRPC') ||
+        error.message.includes('ERR_OSSL_UNSUPPORTED')
+      )) {
+        console.log(`Firebase error detected for ${operationName}, switching to memory storage`);
+        this.useMemoryFallback = true;
+        return memoryOp();
+      }
+      throw error;
+    }
+  }
+
+  // User operations
+  async getUser(id: string): Promise<User | undefined> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.getUser(id),
+      () => this.memoryStorage.getUser(id),
+      'getUser'
+    );
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.getUserByUsername(username),
+      () => this.memoryStorage.getUserByUsername(username),
+      'getUserByUsername'
+    );
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.getUserByEmail(email),
+      () => this.memoryStorage.getUserByEmail(email),
+      'getUserByEmail'
+    );
+  }
+
+  async createUser(userData: InsertUser): Promise<User> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.createUser(userData),
+      () => this.memoryStorage.createUser(userData),
+      'createUser'
+    );
+  }
+
+  async getUsersByRole(role: string): Promise<User[]> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.getUsersByRole(role),
+      () => this.memoryStorage.getUsersByRole(role),
+      'getUsersByRole'
+    );
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.getAllUsers(),
+      () => this.memoryStorage.getAllUsers(),
+      'getAllUsers'
+    );
+  }
+
+  async updateUser(id: string, userData: Partial<User>): Promise<User> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.updateUser(id, userData),
+      () => this.memoryStorage.updateUser(id, userData),
+      'updateUser'
+    );
+  }
+
+  async deleteUser(id: string): Promise<void> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.deleteUser(id),
+      () => this.memoryStorage.deleteUser(id),
+      'deleteUser'
+    );
+  }
+
+  async getMentorByDepartment(department: string): Promise<User | undefined> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.getMentorByDepartment(department),
+      () => this.memoryStorage.getMentorByDepartment(department),
+      'getMentorByDepartment'
+    );
+  }
+
+  // Leave request operations
+  async getAllLeaveRequests(): Promise<LeaveRequest[]> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.getAllLeaveRequests(),
+      () => this.memoryStorage.getAllLeaveRequests(),
+      'getAllLeaveRequests'
+    );
+  }
+
+  async createLeaveRequest(request: InsertLeaveRequest): Promise<LeaveRequest> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.createLeaveRequest(request),
+      () => this.memoryStorage.createLeaveRequest(request),
+      'createLeaveRequest'
+    );
+  }
+
+  async getLeaveRequest(id: string): Promise<LeaveRequest | undefined> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.getLeaveRequest(id),
+      () => this.memoryStorage.getLeaveRequest(id),
+      'getLeaveRequest'
+    );
+  }
+
+  async getLeaveRequestsByStudent(studentId: string): Promise<LeaveRequest[]> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.getLeaveRequestsByStudent(studentId),
+      () => this.memoryStorage.getLeaveRequestsByStudent(studentId),
+      'getLeaveRequestsByStudent'
+    );
+  }
+
+  async getPendingRequestsByApprover(approverId: string, role: string): Promise<LeaveRequest[]> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.getPendingRequestsByApprover(approverId, role),
+      () => this.memoryStorage.getPendingRequestsByApprover(approverId, role),
+      'getPendingRequestsByApprover'
+    );
+  }
+
+  async getApprovedRequestsByApprover(approverId: string, role: string): Promise<LeaveRequest[]> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.getApprovedRequestsByApprover(approverId, role),
+      () => this.memoryStorage.getApprovedRequestsByApprover(approverId, role),
+      'getApprovedRequestsByApprover'
+    );
+  }
+
+  async updateLeaveRequestStatus(id: string, status: string, currentStep: number): Promise<void> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.updateLeaveRequestStatus(id, status, currentStep),
+      () => this.memoryStorage.updateLeaveRequestStatus(id, status, currentStep),
+      'updateLeaveRequestStatus'
+    );
+  }
+
+  async getOverdueReturns(): Promise<LeaveRequest[]> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.getOverdueReturns(),
+      () => this.memoryStorage.getOverdueReturns(),
+      'getOverdueReturns'
+    );
+  }
+
+  // Approval operations
+  async createApproval(approval: InsertApproval): Promise<Approval> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.createApproval(approval),
+      () => this.memoryStorage.createApproval(approval),
+      'createApproval'
+    );
+  }
+
+  async getApprovalsByRequest(requestId: string): Promise<Approval[]> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.getApprovalsByRequest(requestId),
+      () => this.memoryStorage.getApprovalsByRequest(requestId),
+      'getApprovalsByRequest'
+    );
+  }
+
+  async getApprovalsByApprover(approverId: string, role: string): Promise<Approval[]> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.getApprovalsByApprover(approverId, role),
+      () => this.memoryStorage.getApprovalsByApprover(approverId, role),
+      'getApprovalsByApprover'
+    );
+  }
+
+  async updateApprovalStatus(id: string, status: string, comments?: string): Promise<void> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.updateApprovalStatus(id, status, comments),
+      () => this.memoryStorage.updateApprovalStatus(id, status, comments),
+      'updateApprovalStatus'
+    );
+  }
+
+  // QR code operations
+  async createQrCode(qrCode: InsertQrCode): Promise<QrCode> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.createQrCode(qrCode),
+      () => this.memoryStorage.createQrCode(qrCode),
+      'createQrCode'
+    );
+  }
+
+  async getQrCodeByData(qrData: string): Promise<QrCode | undefined> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.getQrCodeByData(qrData),
+      () => this.memoryStorage.getQrCodeByData(qrData),
+      'getQrCodeByData'
+    );
+  }
+
+  async getQrCodeByRequestId(requestId: string): Promise<QrCode | undefined> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.getQrCodeByRequestId(requestId),
+      () => this.memoryStorage.getQrCodeByRequestId(requestId),
+      'getQrCodeByRequestId'
+    );
+  }
+
+  async markQrCodeAsUsed(id: string, scannedBy: string): Promise<void> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.markQrCodeAsUsed(id, scannedBy),
+      () => this.memoryStorage.markQrCodeAsUsed(id, scannedBy),
+      'markQrCodeAsUsed'
+    );
+  }
+
+  // Notification operations
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.createNotification(notification),
+      () => this.memoryStorage.createNotification(notification),
+      'createNotification'
+    );
+  }
+
+  async getPendingNotifications(): Promise<Notification[]> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.getPendingNotifications(),
+      () => this.memoryStorage.getPendingNotifications(),
+      'getPendingNotifications'
+    );
+  }
+
+  async markNotificationAsSent(id: string): Promise<void> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.markNotificationAsSent(id),
+      () => this.memoryStorage.markNotificationAsSent(id),
+      'markNotificationAsSent'
+    );
+  }
+
+  async clearAllData(): Promise<void> {
+    return this.tryFirebaseOrFallback(
+      () => this.firebaseStorage.clearAllData(),
+      () => this.memoryStorage.clearAllData(),
+      'clearAllData'
+    );
+  }
+}
+
+// Create and initialize storage instance - Firebase with memory fallback
 const createStorage = (): IStorage => {
   if (!adminDb) {
-    console.error('Firebase Admin is not properly configured. Please ensure Firebase credentials are set correctly.');
-    console.log('Temporarily falling back to temporary storage until Firebase is configured...');
-    // Temporary fallback until Firebase is properly configured
-    throw new Error('Firebase configuration required. Please set up Firebase credentials properly.');
+    console.error('Firebase Admin is not properly configured. Using memory storage only.');
+    return new MemoryStorage();
   }
-  console.log("Using Firebase storage");
-  return new FirebaseStorage();
+  console.log("Using hybrid storage (Firebase with memory fallback)");
+  return new HybridStorage();
 };
 
 // Initialize storage - Firebase only (no fallback)
