@@ -925,6 +925,183 @@ class MemoryStorage implements IStorage {
   }
 }
 
-// Initialize storage - use Firebase if available, otherwise use MemoryStorage
-export const storage: IStorage = adminDb ? new FirebaseStorage() : new MemoryStorage();
+// Create and initialize storage instance
+const createStorage = (): IStorage => {
+  if (adminDb) {
+    console.log("Using Firebase storage");
+    return new FirebaseStorage();
+  } else {
+    console.log("Using MemoryStorage with seed data");
+    const memoryStorage = new MemoryStorage();
+    
+    // Add seed data for development/demo purposes
+    seedMemoryStorage(memoryStorage);
+    
+    return memoryStorage;
+  }
+};
+
+// Seed function to populate MemoryStorage with demo data
+async function seedMemoryStorage(storage: MemoryStorage) {
+  try {
+    console.log("Seeding MemoryStorage with demo data...");
+    
+    // Create sample users
+    const sampleUsers = [
+      {
+        username: "john.doe",
+        email: "john.doe@college.edu",
+        role: "student" as const,
+        firstName: "John",
+        lastName: "Doe",
+        department: "Computer Science",
+        studentId: "CS2021001"
+      },
+      {
+        username: "jane.smith",
+        email: "jane.smith@college.edu", 
+        role: "student" as const,
+        firstName: "Jane",
+        lastName: "Smith",
+        department: "Electrical Engineering",
+        studentId: "EE2021002"
+      },
+      {
+        username: "bob.wilson",
+        email: "bob.wilson@college.edu",
+        role: "student" as const,
+        firstName: "Bob",
+        lastName: "Wilson", 
+        department: "Mechanical Engineering",
+        studentId: "ME2021003"
+      },
+      {
+        username: "dr.mentor",
+        email: "mentor@college.edu",
+        role: "mentor" as const,
+        firstName: "Dr. Mentor",
+        lastName: "Professor",
+        department: "Computer Science"
+      },
+      {
+        username: "hod.cs",
+        email: "hod.cs@college.edu",
+        role: "hod" as const,
+        firstName: "Dr. HOD",
+        lastName: "Computer Science",
+        department: "Computer Science"
+      },
+      {
+        username: "principal",
+        email: "principal@college.edu",
+        role: "principal" as const,
+        firstName: "Dr. Principal",
+        lastName: "College"
+      },
+      {
+        username: "warden",
+        email: "warden@college.edu",
+        role: "warden" as const,
+        firstName: "Warden",
+        lastName: "Hostel"
+      },
+      {
+        username: "parent1",
+        email: "parent1@gmail.com",
+        role: "parent" as const,
+        firstName: "Parent",
+        lastName: "One"
+      },
+      {
+        username: "security",
+        email: "security@college.edu",
+        role: "security" as const,
+        firstName: "Security",
+        lastName: "Officer"
+      }
+    ];
+
+    // Create users
+    const createdUsers = [];
+    for (const userData of sampleUsers) {
+      const user = await storage.createUser(userData);
+      createdUsers.push(user);
+    }
+
+    // Create sample leave requests  
+    const studentUsers = createdUsers.filter(u => u.role === "student");
+    
+    const sampleRequests = [
+      {
+        studentId: studentUsers[0].id,
+        reason: "Family wedding",
+        leaveType: "personal" as const,
+        fromDate: new Date("2024-12-15"),
+        toDate: new Date("2024-12-17"),
+        isHostelStudent: true,
+        address: "123 Wedding Street, City",
+        phone: "1234567890"
+      },
+      {
+        studentId: studentUsers[1].id,
+        reason: "Medical checkup",
+        leaveType: "medical" as const,
+        fromDate: new Date("2024-12-20"),
+        toDate: new Date("2024-12-21"),
+        isHostelStudent: false,
+        address: "456 Health Avenue, City",
+        phone: "0987654321"
+      },
+      {
+        studentId: studentUsers[2].id,
+        reason: "Conference attendance",
+        leaveType: "academic" as const,
+        fromDate: new Date("2024-12-25"),
+        toDate: new Date("2024-12-27"),
+        isHostelStudent: true,
+        address: "789 Conference Center, City",
+        phone: "1122334455"
+      },
+      {
+        studentId: studentUsers[0].id,
+        reason: "Emergency at home",
+        leaveType: "emergency" as const,
+        fromDate: new Date("2024-12-10"),
+        toDate: new Date("2024-12-12"),
+        isHostelStudent: true,
+        address: "Emergency Address",
+        phone: "9999888877"
+      },
+      {
+        studentId: studentUsers[1].id,
+        reason: "Job interview",
+        leaveType: "personal" as const,
+        fromDate: new Date("2024-12-18"),
+        toDate: new Date("2024-12-19"),
+        isHostelStudent: false,
+        address: "Corporate Office, City",
+        phone: "5566778899"
+      }
+    ];
+
+    // Create leave requests with different statuses
+    const statuses = ["pending", "mentor_approved", "approved", "rejected"];
+    for (let i = 0; i < sampleRequests.length; i++) {
+      const requestData = sampleRequests[i];
+      const request = await storage.createLeaveRequest(requestData);
+      
+      // Update status to create variety
+      const status = statuses[i % statuses.length];
+      await storage.updateLeaveRequestStatus(request.id, status, status === "approved" ? 6 : Math.floor(Math.random() * 5) + 1);
+    }
+
+    console.log(`Seeded MemoryStorage with ${createdUsers.length} users and ${sampleRequests.length} leave requests`);
+    
+  } catch (error) {
+    console.error("Error seeding MemoryStorage:", error);
+  }
+}
+
+// Initialize storage - use Firebase if available, otherwise use MemoryStorage with seed data
+export const storage: IStorage = createStorage();
 
