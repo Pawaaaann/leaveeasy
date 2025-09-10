@@ -613,7 +613,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       let stats = {};
       
-      if (req.userRole === "student") {
+      if (req.userRole === "admin") {
+        // Comprehensive admin statistics
+        const allUsers = await storage.getAllUsers();
+        const allRequests = await storage.getAllLeaveRequests();
+        
+        // Calculate date ranges
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+        const weekStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        
+        // User statistics by role
+        const usersByRole = allUsers.reduce((acc: any, user) => {
+          acc[user.role] = (acc[user.role] || 0) + 1;
+          return acc;
+        }, {});
+        
+        // Request statistics by status
+        const requestsByStatus = allRequests.reduce((acc: any, request) => {
+          acc[request.status] = (acc[request.status] || 0) + 1;
+          return acc;
+        }, {});
+        
+        // Time-based statistics
+        const requestsThisMonth = allRequests.filter(r => 
+          r.createdAt && new Date(r.createdAt) >= monthStart
+        ).length;
+        
+        const requestsThisWeek = allRequests.filter(r => 
+          r.createdAt && new Date(r.createdAt) >= weekStart
+        ).length;
+        
+        const requestsToday = allRequests.filter(r => 
+          r.createdAt && new Date(r.createdAt) >= todayStart
+        ).length;
+        
+        // Active requests (pending or in progress)
+        const activeRequests = allRequests.filter(r => 
+          r.status === 'pending' || r.status === 'in_progress'
+        ).length;
+        
+        // Recent user registrations
+        const newUsersThisWeek = allUsers.filter(u => 
+          u.createdAt && new Date(u.createdAt) >= weekStart
+        ).length;
+        
+        stats = {
+          // Overall totals
+          totalUsers: allUsers.length,
+          totalRequests: allRequests.length,
+          activeRequests,
+          
+          // User breakdown
+          usersByRole,
+          newUsersThisWeek,
+          
+          // Request breakdown
+          requestsByStatus: {
+            pending: requestsByStatus.pending || 0,
+            approved: requestsByStatus.approved || 0,
+            rejected: requestsByStatus.rejected || 0,
+            in_progress: requestsByStatus.in_progress || 0,
+          },
+          
+          // Time-based stats
+          requestsToday,
+          requestsThisWeek,
+          requestsThisMonth,
+          
+          // Quick insights
+          pendingRequests: requestsByStatus.pending || 0,
+          approvedRequests: requestsByStatus.approved || 0,
+          rejectedRequests: requestsByStatus.rejected || 0,
+        };
+      } else if (req.userRole === "student") {
         const requests = await storage.getLeaveRequestsByStudent(req.userId!);
         const pending = requests.filter(r => r.status === "pending").length;
         const approved = requests.filter(r => r.status === "approved").length;
