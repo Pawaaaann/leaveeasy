@@ -29,6 +29,44 @@ export default function AdminDashboard() {
   const [editForm, setEditForm] = useState<Partial<User>>({});
   const [addForm, setAddForm] = useState<Partial<User>>({});
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [firebaseAuthForm, setFirebaseAuthForm] = useState({ email: '', password: '' });
+  const [isFirebaseAuthOpen, setIsFirebaseAuthOpen] = useState(false);
+
+  // Firebase authentication mutation
+  const firebaseAuthMutation = useMutation({
+    mutationFn: (credentials: { email: string; password: string }) => 
+      apiRequest('POST', '/api/authenticate-firebase', credentials),
+    onSuccess: () => {
+      setIsFirebaseAuthOpen(false);
+      setFirebaseAuthForm({ email: '', password: '' });
+      // Refresh the user data after successful authentication
+      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/leave-requests'] });
+      toast({
+        title: "Firebase Authentication Successful",
+        description: "You can now access your Firebase data",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Authentication Failed",
+        description: error?.message || "Failed to authenticate with Firebase",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const handleFirebaseAuth = () => {
+    if (!firebaseAuthForm.email || !firebaseAuthForm.password) {
+      toast({
+        title: "Missing Credentials",
+        description: "Please enter both email and password",
+        variant: "destructive",
+      });
+      return;
+    }
+    firebaseAuthMutation.mutate(firebaseAuthForm);
+  };
 
   // Fetch system data
   const { data: users, isLoading } = useQuery<User[]>({
@@ -251,6 +289,56 @@ export default function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Firebase Authentication Section - shown when no users are loaded */}
+      {(!users || users.length === 0) && (
+        <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20" data-testid="card-firebase-auth">
+          <CardHeader>
+            <CardTitle className="text-orange-800 dark:text-orange-200">Firebase Authentication Required</CardTitle>
+            <CardDescription className="text-orange-700 dark:text-orange-300">
+              To display your existing Firebase data, please authenticate with your Firebase user credentials
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4">
+              <div>
+                <Label htmlFor="firebase-email">Firebase Email</Label>
+                <Input
+                  id="firebase-email"
+                  type="email"
+                  placeholder="Enter your Firebase user email"
+                  value={firebaseAuthForm.email}
+                  onChange={(e) => setFirebaseAuthForm({ ...firebaseAuthForm, email: e.target.value })}
+                  data-testid="input-firebase-email"
+                />
+              </div>
+              <div>
+                <Label htmlFor="firebase-password">Firebase Password</Label>
+                <Input
+                  id="firebase-password"
+                  type="password"
+                  placeholder="Enter your Firebase user password"
+                  value={firebaseAuthForm.password}
+                  onChange={(e) => setFirebaseAuthForm({ ...firebaseAuthForm, password: e.target.value })}
+                  data-testid="input-firebase-password"
+                />
+              </div>
+              <Button
+                onClick={handleFirebaseAuth}
+                disabled={firebaseAuthMutation.isPending}
+                className="w-full"
+                data-testid="button-firebase-authenticate"
+              >
+                {firebaseAuthMutation.isPending ? 'Authenticating...' : 'Connect to Firebase'}
+              </Button>
+            </div>
+            <div className="text-sm text-muted-foreground">
+              <p><strong>Note:</strong> This will authenticate with your Firebase project to access existing user data.</p>
+              <p>Use the same email/password that you use to login to your Firebase project users.</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Quick Management Sections */}
       <div className="grid gap-6 lg:grid-cols-2">
