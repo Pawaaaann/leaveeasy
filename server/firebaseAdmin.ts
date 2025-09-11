@@ -34,7 +34,7 @@ try {
   // Ensure the private key has the proper PEM format
   if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
     console.error('Invalid private key format. Expected format: -----BEGIN PRIVATE KEY-----...-----END PRIVATE KEY-----');
-    console.error('Actual key format received:', privateKey.substring(0, 100));
+    console.error('Private key validation failed - invalid PEM format');
     throw new Error('Private key is not in proper PEM format. Please ensure it starts with -----BEGIN PRIVATE KEY----- and ends with -----END PRIVATE KEY-----');
   }
 

@@ -12,6 +12,8 @@ import {
   type InsertNotification,
 } from "@shared/schema";
 import { adminDb } from "./firebaseAdmin";
+import { firebaseRestClient } from "./firebaseRestClient";
+import { firebaseWebClient } from "./firebaseClient";
 import {
   collection,
   doc,
@@ -137,18 +139,40 @@ export class FirebaseStorage implements IStorage {
   }
 
   async createUser(userData: InsertUser): Promise<User> {
+    const now = new Date();
+    const userWithTimestamps = {
+      ...userData,
+      createdAt: now,
+      updatedAt: now,
+    };
+
     try {
-      const now = new Date();
-      const userWithTimestamps = {
-        ...userData,
-        createdAt: now,
-        updatedAt: now,
-      };
-      
-      const docRef = await adminDb.collection(COLLECTIONS.USERS).add(userWithTimestamps);
-      return { id: docRef.id, ...userWithTimestamps } as User;
+      console.log("Creating user via Web SDK...");
+      const doc = await firebaseWebClient.createDocument(COLLECTIONS.USERS, userWithTimestamps);
+      return { id: doc.id, ...doc } as User;
     } catch (error) {
-      console.error("Error creating user:", error);
+      console.error("Error creating user via Web SDK:", error);
+      
+      // Fallback to REST API
+      try {
+        console.log("Falling back to REST API for user creation...");
+        const doc = await firebaseRestClient.createDocument(COLLECTIONS.USERS, userWithTimestamps);
+        return { id: doc.id, ...doc.data } as User;
+      } catch (restError) {
+        console.error("REST API fallback also failed:", restError);
+      }
+      
+      // Final fallback to Admin SDK if available
+      if (adminDb) {
+        try {
+          console.log("Falling back to Admin SDK for user creation...");
+          const docRef = await adminDb.collection(COLLECTIONS.USERS).add(userWithTimestamps);
+          return { id: docRef.id, ...userWithTimestamps } as User;
+        } catch (adminError) {
+          console.error("Admin SDK fallback also failed:", adminError);
+        }
+      }
+      
       throw error;
     }
   }
@@ -170,43 +194,54 @@ export class FirebaseStorage implements IStorage {
 
   async getAllUsers(): Promise<User[]> {
     try {
-      console.log("Attempting to fetch all users from Firebase...");
-      const querySnapshot = await adminDb.collection(COLLECTIONS.USERS).get();
-      console.log("Successfully fetched users, count:", querySnapshot.docs.length);
+      console.log("Attempting to fetch all users from Firebase via Web SDK...");
+      const documents = await firebaseWebClient.getCollection(COLLECTIONS.USERS);
+      console.log("Successfully fetched users via Web SDK, count:", documents.length);
       
-      const users = querySnapshot.docs.map((docSnap: any) => 
-        this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as User
-      );
-      console.log("Processed users:", users.length);
+      const users = documents.map((doc) => ({
+        id: doc.id,
+        ...doc,
+        createdAt: doc.createdAt instanceof Date ? doc.createdAt : (doc.createdAt?.toDate?.() || new Date()),
+        updatedAt: doc.updatedAt instanceof Date ? doc.updatedAt : (doc.updatedAt?.toDate?.() || new Date()),
+      })) as User[];
+      
+      console.log("Processed users via Web SDK:", users.length);
       return users;
     } catch (error) {
-      console.error("Error getting all users:", error);
+      console.error("Error getting all users via Web SDK:", error);
       
-      // Enhanced error handling for gRPC issues
-      if (error instanceof Error && (
-        error.message.includes('DECODER routines::unsupported') ||
-        error.message.includes('Getting metadata from plugin failed') ||
-        error.message.includes('UNKNOWN') ||
-        error.message.includes('gRPC')
-      )) {
-        console.log("Detected gRPC connection issue. Retrying with different approach...");
+      // Fallback to REST API
+      try {
+        console.log("Attempting fallback to REST API...");
+        const documents = await firebaseRestClient.getCollection(COLLECTIONS.USERS);
+        const users = documents.map((doc) => ({
+          id: doc.id,
+          ...doc.data,
+          createdAt: doc.data.createdAt || new Date(),
+          updatedAt: doc.data.updatedAt || new Date(),
+        })) as User[];
+        console.log(`REST API fallback successful - fetched ${users.length} users`);
+        return users;
+      } catch (restError) {
+        console.error("REST API fallback also failed:", restError);
+      }
+      
+      // Final fallback to Admin SDK
+      if (adminDb) {
         try {
-          // Try alternative approach for fetching users
-          const usersRef = adminDb.collection(COLLECTIONS.USERS);
-          const snapshot = await usersRef.get();
-          const users = snapshot.docs.map((docSnap: any) => 
+          console.log("Attempting final fallback to Firebase Admin SDK...");
+          const querySnapshot = await adminDb.collection(COLLECTIONS.USERS).get();
+          const users = querySnapshot.docs.map((docSnap: any) => 
             this.convertTimestamps({ id: docSnap.id, ...docSnap.data() }) as User
           );
-          
-          console.log(`Retry successful - fetched ${users.length} users`);
+          console.log(`Admin SDK fallback successful - fetched ${users.length} users`);
           return users;
-        } catch (retryError) {
-          console.error("Retry failed:", retryError);
-          console.log("Returning empty array to prevent admin panel crash");
-          return [];
+        } catch (adminError) {
+          console.error("Admin SDK fallback also failed:", adminError);
         }
       }
       
+      console.log("All Firebase access methods failed, returning empty array");
       return [];
     }
   }
