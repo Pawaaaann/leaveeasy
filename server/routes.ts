@@ -36,26 +36,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ status: 'healthy' });
   });
 
-  // Firebase Authentication Route - allows admin to authenticate with Firebase to access existing data
-  app.post('/api/authenticate-firebase', async (req: Request, res: Response) => {
-    try {
-      const { email, password } = req.body;
-      
-      if (!email || !password) {
-        return res.status(400).json({ error: 'Email and password are required' });
-      }
-      
-      // Import the authenticateWithCredentials function
-      const { authenticateWithCredentials } = require('./firebaseClient');
-      
-      await authenticateWithCredentials(email, password);
-      
-      res.json({ success: true, message: 'Firebase authentication successful' });
-    } catch (error) {
-      console.error('Firebase authentication error:', error);
-      res.status(401).json({ error: 'Authentication failed: ' + (error as Error).message });
-    }
-  });
 
   // User routes - stores user profiles when they register/login
   app.post("/api/users", async (req, res) => {

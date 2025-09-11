@@ -1,7 +1,6 @@
 // Firebase Web SDK client for server-side use to bypass Admin SDK JWT signing issues
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, connectFirestoreEmulator, collection, getDocs, doc, getDoc, addDoc, updateDoc, deleteDoc, query, where, orderBy, limit } from 'firebase/firestore';
-import { getAuth, signInWithEmailAndPassword, Auth } from 'firebase/auth';
 
 // Firebase config from environment variables
 const firebaseConfig = {
@@ -13,55 +12,13 @@ const firebaseConfig = {
 // Initialize Firebase app (singleton pattern)
 let app: any = null;
 let db: any = null;
-let auth: Auth | null = null;
-let isAuthenticated = false;
-let authPromise: Promise<void> | null = null;
 
 try {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
   db = getFirestore(app);
-  auth = getAuth(app);
-  console.log('Firebase Web SDK initialized with authentication support');
+  console.log('Firebase Web SDK initialized (unauthenticated)');
 } catch (error) {
   console.error('Failed to initialize Firebase Web SDK:', error);
-}
-
-// Authenticate with Firebase using email/password
-async function ensureAuthenticated(): Promise<void> {
-  if (isAuthenticated || !auth) return;
-  
-  if (authPromise) return authPromise;
-  
-  authPromise = (async () => {
-    try {
-      // For now, we'll need credentials from the user
-      // This will be updated once we get user login details
-      console.log('Firebase authentication required - awaiting user credentials');
-      // Don't mark as authenticated yet - we need user credentials
-    } catch (error) {
-      console.error('Firebase authentication failed:', error);
-      throw error;
-    }
-  })();
-  
-  return authPromise;
-}
-
-// Method to authenticate with provided credentials
-export async function authenticateWithCredentials(email: string, password: string): Promise<void> {
-  if (!auth) {
-    throw new Error('Firebase Auth not initialized');
-  }
-  
-  try {
-    console.log('Authenticating with Firebase using provided credentials...');
-    await signInWithEmailAndPassword(auth, email, password);
-    isAuthenticated = true;
-    console.log('Firebase authentication successful');
-  } catch (error) {
-    console.error('Firebase authentication failed:', error);
-    throw error;
-  }
 }
 
 // Firebase Web SDK client class
@@ -70,8 +27,6 @@ export class FirebaseWebClient {
     if (!db) {
       throw new Error('Firebase Web SDK not initialized');
     }
-
-    await ensureAuthenticated();
 
     try {
       console.log(`Fetching Firebase collection via Web SDK: ${collectionName}`);

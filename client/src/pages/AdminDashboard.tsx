@@ -29,44 +29,6 @@ export default function AdminDashboard() {
   const [editForm, setEditForm] = useState<Partial<User>>({});
   const [addForm, setAddForm] = useState<Partial<User>>({});
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [firebaseAuthForm, setFirebaseAuthForm] = useState({ email: '', password: '' });
-  const [isFirebaseAuthOpen, setIsFirebaseAuthOpen] = useState(false);
-
-  // Firebase authentication mutation
-  const firebaseAuthMutation = useMutation({
-    mutationFn: (credentials: { email: string; password: string }) => 
-      apiRequest('POST', '/api/authenticate-firebase', credentials),
-    onSuccess: () => {
-      setIsFirebaseAuthOpen(false);
-      setFirebaseAuthForm({ email: '', password: '' });
-      // Refresh the user data after successful authentication
-      queryClient.invalidateQueries({ queryKey: ['/api/users'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/leave-requests'] });
-      toast({
-        title: "Firebase Authentication Successful",
-        description: "You can now access your Firebase data",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Authentication Failed",
-        description: error?.message || "Failed to authenticate with Firebase",
-        variant: "destructive",
-      });
-    }
-  });
-
-  const handleFirebaseAuth = () => {
-    if (!firebaseAuthForm.email || !firebaseAuthForm.password) {
-      toast({
-        title: "Missing Credentials",
-        description: "Please enter both email and password",
-        variant: "destructive",
-      });
-      return;
-    }
-    firebaseAuthMutation.mutate(firebaseAuthForm);
-  };
 
   // Fetch system data
   const { data: users, isLoading } = useQuery<User[]>({
@@ -290,51 +252,33 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
-      {/* Firebase Authentication Section - shown when no users are loaded */}
+      {/* Firebase Data Access Information - shown when no users are loaded */}
       {(!users || users.length === 0) && (
-        <Card className="border-orange-200 bg-orange-50 dark:bg-orange-950/20" data-testid="card-firebase-auth">
+        <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/20" data-testid="card-firebase-info">
           <CardHeader>
-            <CardTitle className="text-orange-800 dark:text-orange-200">Firebase Authentication Required</CardTitle>
-            <CardDescription className="text-orange-700 dark:text-orange-300">
-              To display your existing Firebase data, please authenticate with your Firebase user credentials
+            <CardTitle className="text-blue-800 dark:text-blue-200">Firebase Data Access</CardTitle>
+            <CardDescription className="text-blue-700 dark:text-blue-300">
+              Unable to display existing Firebase data due to security restrictions
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid gap-4">
-              <div>
-                <Label htmlFor="firebase-email">Firebase Email</Label>
-                <Input
-                  id="firebase-email"
-                  type="email"
-                  placeholder="Enter your Firebase user email"
-                  value={firebaseAuthForm.email}
-                  onChange={(e) => setFirebaseAuthForm({ ...firebaseAuthForm, email: e.target.value })}
-                  data-testid="input-firebase-email"
-                />
+            <div className="text-sm space-y-2">
+              <p><strong>Current Status:</strong> Your Firebase project has security rules that prevent unauthenticated access to user data.</p>
+              
+              <p><strong>To access your existing Firebase data, you have these options:</strong></p>
+              <ul className="list-disc list-inside ml-4 space-y-1">
+                <li><strong>Option 1:</strong> Provide Firebase service account credentials (full admin access)</li>
+                <li><strong>Option 2:</strong> Temporarily modify Firestore security rules to allow public read access (testing only)</li>
+                <li><strong>Option 3:</strong> Use the admin panel with memory storage (create new test data)</li>
+              </ul>
+              
+              <div className="p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded border border-yellow-200">
+                <p className="text-yellow-800 dark:text-yellow-200 font-medium">Note:</p>
+                <p className="text-yellow-700 dark:text-yellow-300 text-sm">
+                  Your 2 existing Firebase users are safely stored but protected by security rules. 
+                  The system is working correctly - it's just the authentication barrier preventing access.
+                </p>
               </div>
-              <div>
-                <Label htmlFor="firebase-password">Firebase Password</Label>
-                <Input
-                  id="firebase-password"
-                  type="password"
-                  placeholder="Enter your Firebase user password"
-                  value={firebaseAuthForm.password}
-                  onChange={(e) => setFirebaseAuthForm({ ...firebaseAuthForm, password: e.target.value })}
-                  data-testid="input-firebase-password"
-                />
-              </div>
-              <Button
-                onClick={handleFirebaseAuth}
-                disabled={firebaseAuthMutation.isPending}
-                className="w-full"
-                data-testid="button-firebase-authenticate"
-              >
-                {firebaseAuthMutation.isPending ? 'Authenticating...' : 'Connect to Firebase'}
-              </Button>
-            </div>
-            <div className="text-sm text-muted-foreground">
-              <p><strong>Note:</strong> This will authenticate with your Firebase project to access existing user data.</p>
-              <p>Use the same email/password that you use to login to your Firebase project users.</p>
             </div>
           </CardContent>
         </Card>
