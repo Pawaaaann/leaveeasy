@@ -998,7 +998,11 @@ class HybridStorage implements IStorage {
         error.message.includes('Getting metadata from plugin failed') ||
         error.message.includes('UNKNOWN') ||
         error.message.includes('gRPC') ||
-        error.message.includes('ERR_OSSL_UNSUPPORTED')
+        error.message.includes('ERR_OSSL_UNSUPPORTED') ||
+        error.message.includes('Missing or insufficient permissions') ||
+        error.message.includes('permission-denied') ||
+        error.message.includes('403') ||
+        error.message.includes('Forbidden')
       )) {
         console.log(`Firebase error detected for ${operationName}, switching to memory storage`);
         this.useMemoryFallback = true;

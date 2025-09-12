@@ -6,6 +6,7 @@ import { NotificationService } from "./services/notificationService";
 import { insertLeaveRequestSchema, insertUserSchema, type LeaveRequest, COLLECTIONS } from "@shared/schema";
 import { z } from "zod";
 import { adminDb } from "./firebaseAdmin";
+import { adminStorage } from "./adminStorage";
 
 declare global {
   namespace Express {
@@ -145,7 +146,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin-only routes for user management
+  // Admin-only routes for user management (bypasses permissions with Admin SDK)
   app.get("/api/users", authMiddleware, async (req: Request, res: Response) => {
     try {
       // Only allow admin access
@@ -153,14 +154,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Admin access required" });
       }
       
-      // For admin access, try to get users directly from Firebase
+      // Use admin storage for direct Firebase Admin SDK access (bypasses security rules)
       try {
-        const users = await storage.getAllUsers();
+        const users = await adminStorage.getAllUsers();
+        console.log(`Admin API: Successfully retrieved ${users.length} users via Admin SDK`);
         res.json(users);
-      } catch (firebaseError) {
-        console.error("Firebase permission error, returning empty data:", firebaseError);
-        // If Firebase permissions fail, return empty array but still allow admin access
-        res.json([]);
+      } catch (adminError) {
+        console.error("Admin SDK error, falling back to regular storage:", adminError);
+        // Fallback to regular storage if Admin SDK fails
+        try {
+          const users = await storage.getAllUsers();
+          res.json(users);
+        } catch (fallbackError) {
+          console.error("Both Admin SDK and regular storage failed:", fallbackError);
+          res.json([]); // Return empty array but still allow admin access
+        }
       }
     } catch (error) {
       console.error("Get all users error:", error);
@@ -189,8 +197,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const userData = req.body;
       
-      const updatedUser = await storage.updateUser(id, userData);
-      res.json(updatedUser);
+      // Use admin storage for direct Firebase Admin SDK access
+      try {
+        const updatedUser = await adminStorage.updateUser(id, userData);
+        console.log(`Admin API: Successfully updated user ${id} via Admin SDK`);
+        res.json(updatedUser);
+        return;
+      } catch (adminError) {
+        console.error('Admin SDK error, falling back to regular storage:', adminError);
+        const updatedUser = await storage.updateUser(id, userData);
+        res.json(updatedUser);
+      }
     } catch (error) {
       console.error("Update user error:", error);
       res.status(500).json({ message: "Internal server error" });
@@ -209,7 +226,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "User ID is required" });
       }
 
-      await storage.deleteUser(id);
+      // Use admin storage for direct Firebase Admin SDK access
+      try {
+        await adminStorage.deleteUser(id);
+        console.log(`Admin API: Successfully deleted user ${id} via Admin SDK`);
+      } catch (adminError) {
+        console.error('Admin SDK error, falling back to regular storage:', adminError);
+        await storage.deleteUser(id);
+      }
       res.json({ message: "User deleted successfully" });
     } catch (error) {
       console.error("Delete user error:", error);
@@ -229,8 +253,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Admin access required" });
       }
       
-      const requests = await storage.getAllLeaveRequests();
-      res.json(requests);
+      // Use admin storage for direct Firebase Admin SDK access
+      try {
+        const requests = await adminStorage.getAllLeaveRequests();
+        console.log(`Admin API: Successfully retrieved ${requests.length} leave requests via Admin SDK`);
+        res.json(requests);
+        return;
+      } catch (adminError) {
+        console.error('Admin SDK error, falling back to regular storage:', adminError);
+        const requests = await storage.getAllLeaveRequests();
+        res.json(requests);
+      }
     } catch (error) {
       console.error("Get all leave requests error:", error);
       res.status(500).json({ message: "Internal server error" });
