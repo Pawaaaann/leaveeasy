@@ -43,6 +43,11 @@ function getAuthHeaders(): Record<string, string> {
   return {};
 }
 
+// API base URL configuration for different environments  
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? (process.env.REACT_APP_API_URL || 'https://leave-management-backend.onrender.com')
+  : '';
+
 export async function apiRequest(
   method: string,
   url: string,
@@ -54,7 +59,12 @@ export async function apiRequest(
     ...authHeaders,
   };
 
-  const res = await fetch(url, {
+  // In production, prefix with API base URL if it's a relative API path
+  const finalUrl = process.env.NODE_ENV === 'production' && url.startsWith('/api')
+    ? `${API_BASE_URL}${url}`
+    : url;
+
+  const res = await fetch(finalUrl, {
     method,
     headers,
     body: data ? JSON.stringify(data) : undefined,
@@ -72,7 +82,14 @@ export const getQueryFn: <T>(options: {
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
     const authHeaders = getAuthHeaders();
-    const res = await fetch(queryKey.join("/") as string, {
+    const queryUrl = queryKey.join("/") as string;
+    
+    // In production, prefix with API base URL if it's a relative API path
+    const finalUrl = process.env.NODE_ENV === 'production' && queryUrl.startsWith('/api')
+      ? `${API_BASE_URL}${queryUrl}`
+      : queryUrl;
+    
+    const res = await fetch(finalUrl, {
       headers: authHeaders,
       credentials: "include",
     });
