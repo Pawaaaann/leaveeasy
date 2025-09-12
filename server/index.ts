@@ -1,6 +1,8 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import fs from "fs";
+import path from "path";
 
 const app = express();
 app.use(express.json());
@@ -53,6 +55,13 @@ app.use((req, res, next) => {
   if (app.get("env") === "development") {
     await setupVite(app, server);
   } else {
+    // Check if the client build exists before starting production server
+    const buildPath = path.resolve(import.meta.dirname, "..", "dist", "public");
+    if (!fs.existsSync(buildPath)) {
+      log("ERROR: Client build not found. Please run 'npm run build' before starting the production server.");
+      log(`Expected build directory: ${buildPath}`);
+      process.exit(1);
+    }
     serveStatic(app);
   }
 
