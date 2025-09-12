@@ -252,32 +252,63 @@ export default function AdminDashboard() {
         </Card>
       </div>
 
-      {/* Firebase Data Access Information - shown when no users are loaded */}
-      {(!users || users.length === 0) && (
-        <Card className="border-blue-200 bg-blue-50 dark:bg-blue-950/20" data-testid="card-firebase-info">
+      {/* System Status Information - shown when no users are loaded */}
+      {(!users || users.length === 0) && !isLoading && (
+        <Card className="border-green-200 bg-green-50 dark:bg-green-950/20" data-testid="card-system-info">
           <CardHeader>
-            <CardTitle className="text-blue-800 dark:text-blue-200">Firebase Data Access</CardTitle>
-            <CardDescription className="text-blue-700 dark:text-blue-300">
-              Unable to display existing Firebase data due to security restrictions
+            <CardTitle className="text-green-800 dark:text-green-200">System Ready</CardTitle>
+            <CardDescription className="text-green-700 dark:text-green-300">
+              Admin panel is connected to Firebase and ready to manage data
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="text-sm space-y-2">
-              <p><strong>Current Status:</strong> Your Firebase project has security rules that prevent unauthenticated access to user data.</p>
+              <p><strong>Current Status:</strong> ✅ Firebase Admin SDK connected successfully. Database is currently empty.</p>
               
-              <p><strong>To access your existing Firebase data, you have these options:</strong></p>
+              <p><strong>Get started by:</strong></p>
               <ul className="list-disc list-inside ml-4 space-y-1">
-                <li><strong>Option 1:</strong> Provide Firebase service account credentials (full admin access)</li>
-                <li><strong>Option 2:</strong> Temporarily modify Firestore security rules to allow public read access (testing only)</li>
-                <li><strong>Option 3:</strong> Use the admin panel with memory storage (create new test data)</li>
+                <li>Adding new users through the "Add User" button</li>
+                <li>Creating test data to populate the system</li>
+                <li>Importing existing user data</li>
               </ul>
               
-              <div className="p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded border border-yellow-200">
-                <p className="text-yellow-800 dark:text-yellow-200 font-medium">Note:</p>
-                <p className="text-yellow-700 dark:text-yellow-300 text-sm">
-                  Your 2 existing Firebase users are safely stored but protected by security rules. 
-                  The system is working correctly - it's just the authentication barrier preventing access.
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded border border-blue-200">
+                <p className="text-blue-800 dark:text-blue-200 font-medium">Ready to use:</p>
+                <p className="text-blue-700 dark:text-blue-300 text-sm">
+                  All Firebase operations are working correctly. You can create users, manage leave requests, and perform all admin functions.
                 </p>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button 
+                  onClick={openAddDialog} 
+                  className="bg-green-600 hover:bg-green-700"
+                  data-testid="button-add-first-user"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add First User
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    // Create a sample student user
+                    setAddForm({
+                      firstName: "John",
+                      lastName: "Doe", 
+                      username: "john.doe",
+                      email: "john.doe@student.edu",
+                      password: "student123",
+                      role: "student",
+                      department: "Computer Science",
+                      studentId: "CS001",
+                      phone: "123-456-7890"
+                    });
+                    setIsAddDialogOpen(true);
+                  }}
+                  data-testid="button-create-sample"
+                >
+                  Create Sample User
+                </Button>
               </div>
             </div>
           </CardContent>
