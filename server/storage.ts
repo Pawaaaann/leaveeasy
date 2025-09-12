@@ -73,14 +73,36 @@ export interface IStorage {
 }
 
 export class FirebaseStorage implements IStorage {
-  // Helper function to convert Firestore timestamps to Date objects
+  // Helper function to convert Firestore timestamps and references to proper JavaScript types
   private convertTimestamps(data: any): any {
     if (!data) return data;
     
     const converted = { ...data };
-    ['createdAt', 'updatedAt', 'fromDate', 'toDate', 'approvedAt', 'scannedAt', 'sentAt', 'expiresAt'].forEach(field => {
-      if (converted[field] && converted[field].toDate) {
-        converted[field] = converted[field].toDate();
+    
+    // Convert all fields recursively
+    Object.keys(converted).forEach(key => {
+      const value = converted[key];
+      
+      // Convert Firestore Timestamps to Date objects
+      if (value && typeof value === 'object' && value.toDate) {
+        converted[key] = value.toDate();
+      }
+      // Convert Firestore DocumentReferences to their ID strings
+      else if (value && typeof value === 'object' && value._firestore && value._path) {
+        converted[key] = value.id || value._path.segments[value._path.segments.length - 1];
+      }
+      // Handle arrays that might contain references
+      else if (Array.isArray(value)) {
+        converted[key] = value.map(item => {
+          if (item && typeof item === 'object' && item._firestore && item._path) {
+            return item.id || item._path.segments[item._path.segments.length - 1];
+          }
+          return item;
+        });
+      }
+      // Handle nested objects
+      else if (value && typeof value === 'object' && !Array.isArray(value)) {
+        converted[key] = this.convertTimestamps(value);
       }
     });
     
