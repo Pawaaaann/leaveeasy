@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { auth } from "./firebase";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -7,37 +8,18 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-function getAuthHeaders(): Record<string, string> {
-  // Check the new session format first
-  const userSession = localStorage.getItem("userSession");
-  if (userSession) {
-    try {
-      const session = JSON.parse(userSession);
-      if (session.user && session.user.id && session.user.role) {
-        return {
-          "x-user-id": session.user.id,
-          "x-user-role": session.user.role,
-        };
-      }
-    } catch (error) {
-      console.error("Failed to parse user session for auth headers:", error);
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  try {
+    const user = auth.currentUser;
+    if (user) {
+      // Get Firebase ID token for authenticated user
+      const idToken = await user.getIdToken();
+      return {
+        "Authorization": `Bearer ${idToken}`,
+      };
     }
-  }
-  
-  // Fallback to old format for compatibility
-  const userProfile = localStorage.getItem("userProfile");
-  if (userProfile) {
-    try {
-      const user = JSON.parse(userProfile);
-      if (user.id && user.role) {
-        return {
-          "x-user-id": user.id,
-          "x-user-role": user.role,
-        };
-      }
-    } catch (error) {
-      console.error("Failed to parse user profile for auth headers:", error);
-    }
+  } catch (error) {
+    console.error("Failed to get Firebase ID token:", error);
   }
   
   return {};
@@ -53,7 +35,7 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const authHeaders = getAuthHeaders();
+  const authHeaders = await getAuthHeaders();
   const headers = {
     ...(data ? { "Content-Type": "application/json" } : {}),
     ...authHeaders,
@@ -81,7 +63,7 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const authHeaders = getAuthHeaders();
+    const authHeaders = await getAuthHeaders();
     const queryUrl = queryKey.join("/") as string;
     
     // In production, prefix with API base URL if it's a relative API path
