@@ -49,6 +49,12 @@ export default function LeaveRequestForm({ onSuccess, onCancel }: LeaveRequestFo
 
   const submitMutation = useMutation({
     mutationFn: async (data: FormData) => {
+      console.log("Submitting leave request:", data);
+      
+      if (!user?.id) {
+        throw new Error("User not authenticated");
+      }
+      
       const response = await apiRequest(
         "POST", 
         "/api/leave-requests", 
@@ -58,6 +64,12 @@ export default function LeaveRequestForm({ onSuccess, onCancel }: LeaveRequestFo
           toDate: new Date(data.toDate).toISOString(),
         }
       );
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       return response.json();
     },
     onSuccess: () => {
@@ -69,13 +81,35 @@ export default function LeaveRequestForm({ onSuccess, onCancel }: LeaveRequestFo
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/stats"] });
       onSuccess?.();
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("Submit error:", error);
-      toast({
-        title: "Submission Failed",
-        description: "Failed to submit leave request. Please try again.",
-        variant: "destructive",
-      });
+      let errorMessage = "Failed to submit leave request. Please try again.";
+      
+      // Try to extract more specific error message
+      if (error?.response?.json) {
+        error.response.json().then((data: any) => {
+          if (data?.message) {
+            errorMessage = data.message;
+            toast({
+              title: "Submission Failed",
+              description: errorMessage,
+              variant: "destructive",
+            });
+          }
+        }).catch(() => {
+          toast({
+            title: "Submission Failed", 
+            description: errorMessage,
+            variant: "destructive",
+          });
+        });
+      } else {
+        toast({
+          title: "Submission Failed",
+          description: errorMessage,
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -84,11 +118,16 @@ export default function LeaveRequestForm({ onSuccess, onCancel }: LeaveRequestFo
     const fromDate = new Date(data.fromDate);
     const toDate = new Date(data.toDate);
     const today = new Date();
+    today.setHours(0, 0, 0, 0); // Reset time to start of day for proper comparison
     
-    if (fromDate < today) {
+    // Allow same day requests but prevent dates more than 1 day in the past
+    const oneDayAgo = new Date(today);
+    oneDayAgo.setDate(today.getDate() - 1);
+    
+    if (fromDate < oneDayAgo) {
       toast({
         title: "Invalid Date",
-        description: "From date cannot be in the past",
+        description: "From date cannot be more than 1 day in the past",
         variant: "destructive",
       });
       return;
