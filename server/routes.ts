@@ -270,6 +270,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Additional admin-only endpoints for enhanced Firebase data management
+  app.get("/api/admin/stats", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      if (req.userRole !== "admin") {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const stats = await adminStorage.getCollectionStats();
+      console.log("Admin API: Retrieved collection statistics via Admin SDK");
+      res.json(stats);
+    } catch (error) {
+      console.error("Get admin stats error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
+  app.delete("/api/admin/clear-data", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      if (req.userRole !== "admin") {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      await adminStorage.clearAllData();
+      console.log("Admin API: Cleared all Firebase data via Admin SDK");
+      res.json({ message: "All data cleared successfully" });
+    } catch (error) {
+      console.error("Clear all data error:", error);
+      res.status(500).json({ message: "Failed to clear data" });
+    }
+  });
+
+  app.put("/api/admin/leave-requests/:id/status", authMiddleware, async (req: Request, res: Response) => {
+    try {
+      if (req.userRole !== "admin") {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const { id } = req.params;
+      const { status, currentStep } = req.body;
+      
+      await adminStorage.updateLeaveRequestStatus(id, status, currentStep);
+      console.log(`Admin API: Updated leave request ${id} status to ${status} via Admin SDK`);
+      res.json({ message: "Leave request status updated successfully" });
+    } catch (error) {
+      console.error("Update leave request status error:", error);
+      res.status(500).json({ message: "Internal server error" });
+    }
+  });
+
   // Leave request routes
   app.post("/api/leave-requests", authMiddleware, async (req: Request, res: Response) => {
     try {
