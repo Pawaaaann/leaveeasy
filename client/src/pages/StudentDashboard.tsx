@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Calendar, CheckCircle, Clock, Home, Plus, History, LogOut, User } from "lucide-react";
+import { Calendar, CheckCircle, Clock, Home, Plus, History, LogOut, User, XCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import LeaveRequestForm from "@/components/LeaveRequestForm";
@@ -135,12 +135,13 @@ export default function StudentDashboard() {
                 }}
               />
               <StatsCard
-                title="Days Remaining"
-                value={15}
-                icon={Calendar}
-                iconColor="text-blue-500"
+                title="Rejected this month"
+                value={(stats as any)?.rejectedThisMonth || 0}
+                icon={XCircle}
+                iconColor="text-red-500"
                 onClick={() => {
-                  toast({ title: "Days Remaining", description: "You have 15 days of leave remaining this term" });
+                  setShowHistory(true);
+                  toast({ title: "Rejected this month", description: `${(stats as any)?.rejectedThisMonth || 0} requests rejected this month` });
                 }}
               />
             </div>
