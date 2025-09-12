@@ -44,8 +44,8 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 // API base URL configuration for different environments  
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? (process.env.REACT_APP_API_URL || 'https://leave-management-backend.onrender.com')
+const API_BASE_URL = import.meta.env.PROD
+  ? (import.meta.env.VITE_API_URL || 'https://leave-management-backend.onrender.com')
   : '';
 
 export async function apiRequest(
@@ -60,7 +60,7 @@ export async function apiRequest(
   };
 
   // In production, prefix with API base URL if it's a relative API path
-  const finalUrl = process.env.NODE_ENV === 'production' && url.startsWith('/api')
+  const finalUrl = import.meta.env.PROD && url.startsWith('/api')
     ? `${API_BASE_URL}${url}`
     : url;
 
@@ -85,7 +85,7 @@ export const getQueryFn: <T>(options: {
     const queryUrl = queryKey.join("/") as string;
     
     // In production, prefix with API base URL if it's a relative API path
-    const finalUrl = process.env.NODE_ENV === 'production' && queryUrl.startsWith('/api')
+    const finalUrl = import.meta.env.PROD && queryUrl.startsWith('/api')
       ? `${API_BASE_URL}${queryUrl}`
       : queryUrl;
     
