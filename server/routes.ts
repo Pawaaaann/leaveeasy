@@ -7,6 +7,7 @@ import { insertLeaveRequestSchema, insertUserSchema, type LeaveRequest, COLLECTI
 import { z } from "zod";
 import { adminDb } from "./firebaseAdmin";
 import { adminStorage } from "./adminStorage";
+import { getAuth } from "firebase-admin/auth";
 
 declare global {
   namespace Express {
@@ -17,17 +18,38 @@ declare global {
   }
 }
 
-const authMiddleware = (req: Request, res: Response, next: any) => {
-  const userId = Array.isArray(req.headers["x-user-id"]) ? req.headers["x-user-id"][0] : req.headers["x-user-id"];
-  const userRole = Array.isArray(req.headers["x-user-role"]) ? req.headers["x-user-role"][0] : req.headers["x-user-role"];
-  
-  if (!userId || !userRole) {
-    return res.status(401).json({ message: "Authentication required" });
+const authMiddleware = async (req: Request, res: Response, next: any) => {
+  try {
+    // Extract Bearer token from Authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ message: "Authentication required. Please provide a valid token." });
+    }
+
+    const idToken = authHeader.substring(7); // Remove 'Bearer ' prefix
+    
+    // Verify the Firebase ID token using Firebase Admin SDK
+    const decodedToken = await getAuth().verifyIdToken(idToken);
+    
+    // Get user data from Firestore using the verified Firebase UID
+    const userDoc = await adminDb.collection(COLLECTIONS.USERS).doc(decodedToken.uid).get();
+    
+    if (!userDoc.exists) {
+      return res.status(401).json({ message: "User profile not found. Please complete registration." });
+    }
+
+    const userData = userDoc.data();
+    
+    // Attach verified user information to request
+    req.userId = decodedToken.uid;
+    req.userRole = userData?.role || 'student';
+    
+    console.log(`Authenticated user: ${decodedToken.uid} with role: ${req.userRole}`);
+    next();
+  } catch (error) {
+    console.error('Authentication error:', error);
+    return res.status(401).json({ message: "Invalid or expired token" });
   }
-  
-  req.userId = userId as string;
-  req.userRole = userRole as string;
-  next();
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
